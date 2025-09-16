@@ -37,7 +37,7 @@ export default function HomePage() {
       <div className="w-full max-w-4xl mx-auto text-center space-y-8">
         {/* Header Section */}
         <div className="space-y-4">
-          <h1 className="text-6xl md:text-7xl font-bold text-white leading-tight text-balance">
+          <h1 className="text-6xl md:text-7xl font-bold text-pink-500 leading-tight text-balance">
             AI TikTok that Drive Sales
           </h1>
           <p className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto text-pretty">
@@ -47,15 +47,15 @@ export default function HomePage() {
         </div>
 
         {/* Main Content Card */}
-        <Card className="max-w-md mx-auto p-8 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl">
+        <Card className="max-w-md mx-auto p-8 bg-pink-500/10 backdrop-blur-md border border-pink-500/20 shadow-xl">
           {!isSubmitted ? (
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold text-white">
+                <h2 className="text-2xl font-semibold text-pink-500">
                   Join the Waitlist
                 </h2>
                 <p className="text-gray-300">
-                  Get exclusive early access to aitiktokz.com
+                  Get exclusive early access at pinkcow.ai
                 </p>
               </div>
 
@@ -66,11 +66,11 @@ export default function HomePage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/20"
+                  className="bg-pink-500/5 border-pink-500/20 text-pink-500 placeholder:text-pink-300 focus-visible:ring-2 focus-visible:ring-pink-500/30"
                 />
                 <Button
                   type="submit"
-                  className="w-full bg-white text-black hover:bg-gray-200 font-semibold py-3"
+                  className="w-full bg-pink-500 text-white hover:bg-pink-400 font-semibold py-3"
                 >
                   Join Waitlist
                 </Button>
@@ -78,9 +78,9 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="w-16 h-16 mx-auto bg-white/10 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 mx-auto bg-pink-500/10 rounded-full flex items-center justify-center">
                 <svg
-                  className="w-8 h-8 text-white"
+                  className="w-8 h-8 text-pink-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -93,7 +93,7 @@ export default function HomePage() {
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-white">
+              <h3 className="text-xl font-semibold text-pink-500">
                 You're on the list!
               </h3>
               <p className="text-gray-300">
@@ -106,7 +106,7 @@ export default function HomePage() {
         {/* Features Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
           <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto bg-white rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto bg-pink-500 rounded-full flex items-center justify-center">
               <svg
                 className="w-6 h-6 text-black"
                 fill="none"
@@ -121,14 +121,16 @@ export default function HomePage() {
                 />
               </svg>
             </div>
-            <h3 className="font-semibold text-white">Done-for-You Posting</h3>
+            <h3 className="font-semibold text-pink-500">
+              Done-for-You Posting
+            </h3>
             <p className="text-sm text-gray-300">
               We create and publish TikToks for your business
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto bg-white rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto bg-pink-500 rounded-full flex items-center justify-center">
               <svg
                 className="w-6 h-6 text-black"
                 fill="none"
@@ -143,14 +145,16 @@ export default function HomePage() {
                 />
               </svg>
             </div>
-            <h3 className="font-semibold text-white">Warmed TikTok Account</h3>
+            <h3 className="font-semibold text-pink-500">
+              Warmed TikTok Account
+            </h3>
             <p className="text-sm text-gray-300">
               We provide the account for maximum reach
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-12 h-12 mx-auto bg-white rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto bg-pink-500 rounded-full flex items-center justify-center">
               <svg
                 className="w-6 h-6 text-black"
                 fill="none"
@@ -165,7 +169,9 @@ export default function HomePage() {
                 />
               </svg>
             </div>
-            <h3 className="font-semibold text-white">Just Share Your Link</h3>
+            <h3 className="font-semibold text-pink-500">
+              Just Share Your Link
+            </h3>
             <p className="text-sm text-gray-300">
               Send your website or booking link — no other setup
             </p>
