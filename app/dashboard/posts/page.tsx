@@ -5,81 +5,76 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type MockSchedule = {
+type MockPost = {
   id: string;
   title: string;
-  date: string;
   account: string;
-  status: "queued" | "posted" | "failed";
+  status: "draft" | "queued" | "posted";
 };
 
-export default function SchedulesPage() {
-  const [schedules, setSchedules] = useState<MockSchedule[]>([]);
+export default function PostsPage() {
+  const [posts, setPosts] = useState<MockPost[]>([]);
 
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Schedules</h1>
-          <p className="text-sm text-muted-foreground">
-            Plan and queue your posts.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Posts</h1>
+          <p className="text-sm text-white/80">Create and manage your posts.</p>
         </div>
         <Button
           onClick={() => {
-            /* wire later */
+            /* later */
           }}
         >
-          Create Schedule
+          New Post
         </Button>
       </header>
 
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-black border-white/10 text-white">
         <CardHeader>
-          <CardTitle>New Schedule</CardTitle>
+          <CardTitle>Create Post</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-4">
           <Input placeholder="Title" />
-          <Input type="datetime-local" placeholder="Date" />
           <Input placeholder="Account" />
+          <Input placeholder="When (optional)" />
           <Button>Create</Button>
         </CardContent>
       </Card>
 
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-black border-white/10 text-white">
         <CardHeader>
-          <CardTitle>Upcoming</CardTitle>
+          <CardTitle>All Posts</CardTitle>
         </CardHeader>
         <CardContent>
-          {schedules.length === 0 ? (
-            <div className="h-40 rounded-md border border-dashed border-white/15 flex items-center justify-center text-sm text-muted-foreground">
-              No schedules yet. Create one above.
+          {posts.length === 0 ? (
+            <div className="h-40 rounded-md border border-dashed border-white/15 flex items-center justify-center text-sm text-white/70">
+              No posts yet. Create one above.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground">
+                <thead className="text-left text-white/80">
                   <tr className="border-b border-white/10">
                     <th className="py-2 pr-4">Title</th>
-                    <th className="py-2 pr-4">Date</th>
                     <th className="py-2 pr-4">Account</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {schedules.map((s) => (
-                    <tr key={s.id} className="border-b border-white/10">
-                      <td className="py-2 pr-4">{s.title}</td>
-                      <td className="py-2 pr-4">{s.date}</td>
-                      <td className="py-2 pr-4">{s.account}</td>
-                      <td className="py-2 pr-4 capitalize">{s.status}</td>
+                  {posts.map((p) => (
+                    <tr key={p.id} className="border-b border-white/10">
+                      <td className="py-2 pr-4">{p.title}</td>
+                      <td className="py-2 pr-4">{p.account}</td>
+                      <td className="py-2 pr-4 capitalize">{p.status}</td>
                       <td className="py-2 pr-0 text-right">
                         <Button size="sm" variant="outline" className="mr-2">
                           Edit
                         </Button>
                         <Button size="sm" variant="destructive">
-                          Cancel
+                          Delete
                         </Button>
                       </td>
                     </tr>
