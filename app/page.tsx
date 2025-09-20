@@ -7,30 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import Image from "next/image";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function HomePage() {
-  const [email, setEmail] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitted(false);
-    fetch("/api/waitlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to join waitlist");
-        }
-        setIsSubmitted(true);
-      })
-      .catch((err) => {
-        console.error(err);
-        alert("Something went wrong. Please try again.");
+  const handleGoogleSignup = async () => {
+    try {
+      setIsLoading(true);
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
+      // supabase will redirect; no further action needed here
+    } catch (err) {
+      console.error(err);
+      alert("Google sign-in failed. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -55,61 +52,21 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Main Content Card */}
+        {/* Auth Card */}
         <Card className="max-w-md mx-auto p-8 bg-white/5 backdrop-blur-md border border-white/10 shadow-xl">
-          {!isSubmitted ? (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold text-white">
-                  Join the Waitlist
-                </h2>
-                <p className="text-gray-300">
-                  Get exclusive early access at pinkcow.ai
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  type="email"
-                  placeholder="Your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-white/20"
-                />
-                <Button
-                  type="submit"
-                  className="w-full bg-white text-black hover:bg-gray-200 font-semibold py-3"
-                >
-                  Join Waitlist
-                </Button>
-              </form>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold text-white">Sign up</h2>
+              <p className="text-gray-300">Continue with your Google account</p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="w-16 h-16 mx-auto bg-white/10 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-white">
-                You're on the list!
-              </h3>
-              <p className="text-gray-300">
-                Thanks - you will hear back from us soon.
-              </p>
-            </div>
-          )}
+            <Button
+              onClick={handleGoogleSignup}
+              disabled={isLoading}
+              className="w-full bg-white text-black hover:bg-gray-200 font-semibold py-3"
+            >
+              {isLoading ? "Redirecting…" : "Sign up with Google"}
+            </Button>
+          </div>
         </Card>
 
         {/* Features Section */}
