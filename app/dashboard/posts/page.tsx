@@ -31,6 +31,28 @@ export default function PostsPage() {
   const [description, setDescription] = useState("");
   const [hashtags, setHashtags] = useState("");
 
+  const renderHashtagChips = (value: string | null | undefined) => {
+    if (!value) return null;
+    const tags = value
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    if (tags.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {tags.map((t, idx) => (
+          <span
+            key={`${t}-${idx}`}
+            className="inline-block rounded px-1.5 py-0.5 text-xs bg-white/10 text-white/80"
+          >
+            {t.startsWith("#") ? t : `#${t}`}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser().then(async ({ data }) => {
@@ -228,6 +250,7 @@ export default function PostsPage() {
                 <thead className="text-left text-white/80">
                   <tr className="border-b border-white/10">
                     <th className="py-2 pr-4">Preview</th>
+                    <th className="py-2 pr-4">Description</th>
                     <th className="py-2 pr-4">Account</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
@@ -237,26 +260,24 @@ export default function PostsPage() {
                   {posts.map((p) => (
                     <tr key={p.id} className="border-b border-white/10">
                       <td className="py-2 pr-4">
-                        <div className="flex items-start gap-3">
-                          {/* Video first frame via <video> poster fallback */}
-                          {p.video_url ? (
-                            <video
-                              src={p.video_url}
-                              className="h-14 w-10 object-cover rounded-sm bg-white/10"
-                              muted
-                              playsInline
-                            />
-                          ) : (
-                            <div className="h-14 w-10 rounded-sm bg-white/10" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="text-white/90 truncate max-w-[40ch]">
-                              {p.description || p.title || "—"}
-                            </div>
-                            <div className="text-xs text-white/60 truncate max-w-[40ch]">
-                              {p.hashtags || ""}
-                            </div>
+                        {/* Video first frame via <video> poster fallback */}
+                        {p.video_url ? (
+                          <video
+                            src={p.video_url}
+                            className="h-10 w-8 sm:h-12 sm:w-10 object-cover rounded bg-white/10"
+                            muted
+                            playsInline
+                          />
+                        ) : (
+                          <div className="h-10 w-8 sm:h-12 sm:w-10 rounded bg-white/10" />
+                        )}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <div className="min-w-0">
+                          <div className="text-white/90 truncate max-w-[40ch]">
+                            {p.description || p.title || "—"}
                           </div>
+                          {renderHashtagChips(p.hashtags)}
                         </div>
                       </td>
                       <td className="py-2 pr-4">{p.account}</td>
