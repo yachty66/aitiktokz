@@ -10,6 +10,4 @@ what should be possible with the platform?
   - post is getting saved and rendered from supabase
 4. user can logout
 
-
-
-
+i need around 6 hours for the content creation so when

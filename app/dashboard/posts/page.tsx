@@ -6,15 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-type MockPost = {
-  id: string;
-  title: string;
-  account: string;
-  status: "draft" | "queued" | "posted";
+type PostRow = {
+  id: string | number;
+  title: string | null;
+  account: string | null;
+  status: "draft" | "queued" | "posted" | "failed" | null;
+  start_at?: string | null;
+  created_at?: string | null;
+  video_url?: string | null;
+  description?: string | null;
+  hashtags?: string | null;
 };
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<MockPost[]>([]);
+  const [posts, setPosts] = useState<PostRow[]>([]);
   const [title, setTitle] = useState("");
   const [account, setAccount] = useState("");
   const [when, setWhen] = useState("");
@@ -37,6 +42,37 @@ export default function PostsPage() {
         .or(`user_uid.eq.${user.id},user_email.eq.${user.email}`);
       setAccounts((rows as any) ?? []);
     });
+  }, []);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const load = async () => {
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (!user) return;
+      const { data } = await supabase
+        .from("posts")
+        .select(
+          "id,title,account,status,start_at,created_at,video_url,description,hashtags,user_uid,user_email"
+        )
+        .or(`user_uid.eq.${user.id},user_email.eq.${user.email}`)
+        .order("created_at", { ascending: false });
+      setPosts((data as any) ?? []);
+    };
+    load();
+
+    // Optional: realtime updates if enabled
+    const channel = supabase
+      .channel("posts_changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts" },
+        () => load()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const uploadToS3 = async (file: File): Promise<string> => {
@@ -75,17 +111,21 @@ export default function PostsPage() {
       if (!videoFile) throw new Error("Select a video");
       if (!account) throw new Error("Select an account");
       const videoUrl = await uploadToS3(videoFile);
-      const { error } = await supabase.from("posts").insert({
-        title,
-        account,
-        start_at: when,
-        video_url: videoUrl,
-        description,
-        hashtags,
-        user_uid: user.id,
-        user_email: user.email,
-        status: "queued",
-      });
+      const { data: inserted, error } = await supabase
+        .from("posts")
+        .insert({
+          title,
+          account,
+          start_at: when,
+          video_url: videoUrl,
+          description,
+          hashtags,
+          user_uid: user.id,
+          user_email: user.email,
+          status: "queued",
+        })
+        .select()
+        .single();
       if (error) throw error;
       setTitle("");
       setAccount("");
@@ -93,6 +133,9 @@ export default function PostsPage() {
       setVideoFile(null);
       setDescription("");
       setHashtags("");
+      if (inserted) {
+        setPosts((prev) => [inserted as any, ...prev]);
+      }
       alert("Post queued");
     } catch (e: any) {
       alert(e.message || "Failed to create");
@@ -184,7 +227,7 @@ export default function PostsPage() {
               <table className="w-full text-sm">
                 <thead className="text-left text-white/80">
                   <tr className="border-b border-white/10">
-                    <th className="py-2 pr-4">Title</th>
+                    <th className="py-2 pr-4">Preview</th>
                     <th className="py-2 pr-4">Account</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4 text-right">Actions</th>
@@ -193,7 +236,29 @@ export default function PostsPage() {
                 <tbody>
                   {posts.map((p) => (
                     <tr key={p.id} className="border-b border-white/10">
-                      <td className="py-2 pr-4">{p.title}</td>
+                      <td className="py-2 pr-4">
+                        <div className="flex items-start gap-3">
+                          {/* Video first frame via <video> poster fallback */}
+                          {p.video_url ? (
+                            <video
+                              src={p.video_url}
+                              className="h-14 w-10 object-cover rounded-sm bg-white/10"
+                              muted
+                              playsInline
+                            />
+                          ) : (
+                            <div className="h-14 w-10 rounded-sm bg-white/10" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-white/90 truncate max-w-[40ch]">
+                              {p.description || p.title || "—"}
+                            </div>
+                            <div className="text-xs text-white/60 truncate max-w-[40ch]">
+                              {p.hashtags || ""}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
                       <td className="py-2 pr-4">{p.account}</td>
                       <td className="py-2 pr-4 capitalize">{p.status}</td>
                       <td className="py-2 pr-0 text-right">
