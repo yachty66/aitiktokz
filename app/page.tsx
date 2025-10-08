@@ -133,6 +133,17 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative py-20 px-4 overflow-hidden">
         <div className="max-w-5xl mx-auto text-center space-y-8">
+          <div className="relative mb-8">
+            <Image
+              src="/mascot.jpeg"
+              alt="Mascot"
+              width={160}
+              height={160}
+              priority
+              className="mx-auto drop-shadow-2xl rounded-full"
+            />
+          </div>
+
           <div className="inline-block px-4 py-2 bg-white/10 rounded-full text-sm font-medium mb-4">
             Over 100M+ views generated for our clients
           </div>
