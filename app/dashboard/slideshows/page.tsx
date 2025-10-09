@@ -26,6 +26,34 @@ export default function SlideshowsPage() {
   const [analyzingTemplateId, setAnalyzingTemplateId] = useState<string | null>(
     null
   );
+  const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
+  const [imageSearch, setImageSearch] = useState("");
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(
+    null
+  );
+  const [appliedCollection, setAppliedCollection] = useState<string | null>(
+    null
+  );
+
+  const exampleCollections = [
+    "Pinterest – UGC Entrepreneur",
+    "Pinterest – UGC Selfie Couples",
+    "Pinterest – NYC Lifestyle",
+    "Tumblr – slinkybarbie",
+    "Tumblr – saltedpeach",
+    "Pinterest – Faceless Selfies",
+    "Pinterest – Surrealism",
+    "Pinterest – Fall Evening",
+    "Pinterest – Summer Lake",
+    "Pinterest – School",
+    "Pinterest – Running",
+    "Pinterest – Gym",
+    "Aesthetic Books",
+  ];
+
+  const filteredCollections = exampleCollections.filter((name) =>
+    name.toLowerCase().includes(imageSearch.toLowerCase())
+  );
 
   useEffect(() => {
     if (showTemplateModal) {
@@ -97,16 +125,25 @@ export default function SlideshowsPage() {
           <Card className="bg-black border border-white/10 p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">2. Images</h2>
-              <span className="text-xs text-white/60 flex items-center gap-1">
-                <span className="w-2 h-2 bg-white/60 rounded-full"></span>
-                No image collection selected
+              <span className="text-xs text-white/60 flex items-center gap-2">
+                <span
+                  className={
+                    appliedCollection
+                      ? "w-2 h-2 bg-white rounded-full"
+                      : "w-2 h-2 bg-white/60 rounded-full"
+                  }
+                />
+                {appliedCollection || "No image collection selected"}
               </span>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-md h-[160px] flex items-center justify-center">
+            <button
+              onClick={() => setIsImagesModalOpen(true)}
+              className="bg-white/5 border border-white/10 rounded-md h-[160px] flex items-center justify-center w-full hover:bg-white/10 transition-colors"
+            >
               <p className="text-white/40 text-sm">
                 Select an image collection to get started
               </p>
-            </div>
+            </button>
           </Card>
 
           {/* Generate Button */}
@@ -640,6 +677,91 @@ export default function SlideshowsPage() {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isImagesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-6xl max-h-[90vh] mx-4 bg-black border border-white/20 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <h2 className="text-2xl font-bold">Select Image Collection</h2>
+              <button
+                onClick={() => setIsImagesModalOpen(false)}
+                className="text-white/60 hover:text-white transition-colors"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 border-b border-white/10">
+              <input
+                value={imageSearch}
+                onChange={(e) => setImageSearch(e.target.value)}
+                placeholder="Search collections..."
+                className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
+              />
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredCollections.map((name, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedCollection(name)}
+                    className={`text-left bg-white/5 border rounded-md overflow-hidden hover:bg-white/10 transition-colors ${
+                      selectedCollection === name
+                        ? "border-white"
+                        : "border-white/10"
+                    }`}
+                  >
+                    <div className="grid grid-cols-8 gap-[2px] p-2">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded"
+                        />
+                      ))}
+                    </div>
+                    <div className="px-3 py-2 text-sm text-white/80 truncate">
+                      {name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+              <Button
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/5"
+                onClick={() => setIsImagesModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-white text-black hover:bg-gray-200"
+                disabled={!selectedCollection}
+                onClick={() => {
+                  setAppliedCollection(selectedCollection);
+                  setIsImagesModalOpen(false);
+                }}
+              >
+                Save
+              </Button>
             </div>
           </div>
         </div>

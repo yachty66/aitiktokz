@@ -29,7 +29,7 @@ the prompt comes in and then based on the prompt we need to make the
 
 i think for all of the stuff 
 
-1. make a prompt for a agent who gets as input a slideshow and outputs a prompt for recreating the slideshow
+1. make a prompt for a agent who gets as input a slideshow and outputs a prompt for recreating the slideshow - 
 
 2. make another agent who takes the previous output prompt and makes the text content for the slides
 
