@@ -37,16 +37,22 @@ export default function SlideshowsPage() {
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [editingOriginal, setEditingOriginal] = useState<string>("");
+  const editingRef = useRef<HTMLDivElement | null>(null);
+  const seededRef = useRef<boolean>(false);
   const [textBoxes, setTextBoxes] = useState<
     { x: number; y: number; widthPct: number }[]
   >([]);
-  const [dragMode, setDragMode] = useState<"none" | "move" | "resize">("none");
+  const [dragMode, setDragMode] = useState<
+    "none" | "move" | "resize-l" | "resize-r"
+  >("none");
   const dragStart = useRef<{
     x: number;
     y: number;
     slideIdx: number;
     box: { x: number; y: number; widthPct: number };
     rect: DOMRect;
+    boxPxW?: number;
+    boxPxH?: number;
   } | null>(null);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
@@ -71,6 +77,26 @@ export default function SlideshowsPage() {
     });
   }, [currentSlide]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  useEffect(() => {
+    if (editingSlide !== null) {
+      // Seed again on each start and focus the editor
+      seededRef.current = false;
+      requestAnimationFrame(() => {
+        const el = editingRef.current as HTMLElement | null;
+        if (el) {
+          try {
+            el.focus();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          } catch {}
+        }
+      });
+    }
+  }, [editingSlide]);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [imageSearch, setImageSearch] = useState("");
@@ -319,13 +345,18 @@ export default function SlideshowsPage() {
                         const w = ds.rect.width || 1;
                         const h = ds.rect.height || 1;
                         if (dragMode === "move") {
+                          // Constrain using current editable box size (if available)
+                          const boxW = dragStart.current?.boxPxW || 0;
+                          const boxH = dragStart.current?.boxPxH || 0;
+                          const halfWPct = (boxW / 2 / w) * 100;
+                          const halfHPct = (boxH / 2 / h) * 100;
                           const nx = Math.min(
-                            100,
-                            Math.max(0, ds.box.x + (dx / w) * 100)
+                            100 - halfWPct,
+                            Math.max(halfWPct, ds.box.x + (dx / w) * 100)
                           );
                           const ny = Math.min(
-                            100,
-                            Math.max(0, ds.box.y + (dy / h) * 100)
+                            100 - halfHPct,
+                            Math.max(halfHPct, ds.box.y + (dy / h) * 100)
                           );
                           setTextBoxes((prev) => {
                             const next = [...prev];
@@ -340,10 +371,16 @@ export default function SlideshowsPage() {
                             };
                             return next;
                           });
-                        } else if (dragMode === "resize") {
+                        } else if (
+                          dragMode === "resize-l" ||
+                          dragMode === "resize-r"
+                        ) {
+                          const deltaPct = (dx / w) * 100;
+                          const signed =
+                            dragMode === "resize-l" ? -deltaPct : deltaPct;
                           const nw = Math.min(
                             95,
-                            Math.max(10, ds.box.widthPct + (dx / w) * 100)
+                            Math.max(10, ds.box.widthPct + signed)
                           );
                           setTextBoxes((prev) => {
                             const next = [...prev];
@@ -376,7 +413,7 @@ export default function SlideshowsPage() {
                       />
                       {editingSlide === idx ? (
                         <div
-                          className="absolute p-0"
+                          className="absolute p-0 z-10"
                           style={{
                             left: `${textBoxes[idx]?.x ?? 50}%`,
                             top: `${textBoxes[idx]?.y ?? 50}%`,
@@ -385,8 +422,7 @@ export default function SlideshowsPage() {
                           }}
                         >
                           <div
-                            className="absolute -top-2 -left-2 w-4 h-4 rounded bg-white text-black flex items-center justify-center border border-white/30 cursor-move"
-                            title="Drag to move"
+                            className="absolute -top-6 left-0 right-0 h-5 cursor-move flex items-center justify-center text-[10px] text-black bg-white/90 rounded-t"
                             onMouseDown={(e) => {
                               const container =
                                 (e.currentTarget.parentElement
@@ -394,6 +430,9 @@ export default function SlideshowsPage() {
                               const rect = container?.getBoundingClientRect();
                               if (!rect) return;
                               setDragMode("move");
+                              const boxEl =
+                                editingRef.current as HTMLElement | null;
+                              const boxRect = boxEl?.getBoundingClientRect();
                               dragStart.current = {
                                 x: e.clientX,
                                 y: e.clientY,
@@ -404,20 +443,25 @@ export default function SlideshowsPage() {
                                   widthPct: 85,
                                 },
                                 rect,
+                                boxPxW: boxRect?.width,
+                                boxPxH: boxRect?.height,
                               };
-                              e.stopPropagation();
                             }}
-                          />
+                          >
+                            Drag
+                          </div>
                           <div
                             contentEditable
                             suppressContentEditableWarning
                             role="textbox"
                             aria-label="Edit text"
-                            onInput={(e) =>
+                            ref={editingRef}
+                            onInput={(e) => {
+                              // keep internal state but do not re-render contentEditable value
                               setEditingValue(
                                 (e.target as HTMLElement).innerText
-                              )
-                            }
+                              );
+                            }}
                             onKeyDown={(e) => {
                               if (
                                 (e.metaKey || e.ctrlKey) &&
@@ -478,7 +522,7 @@ export default function SlideshowsPage() {
                               }
                               setEditingSlide(null);
                             }}
-                            className="w-full min-h-[3rem] bg-white/10 backdrop-blur-sm border border-white/30 rounded-md px-3 py-2 text-white text-center font-extrabold leading-tight tracking-tight text-[18px] outline-none focus:outline-none resize-both overflow-auto select-text"
+                            className="w-full min-h-[3rem] bg-white/10 backdrop-blur-sm border border-white/30 rounded-md px-3 py-2 text-white text-center font-extrabold leading-tight tracking-tight text-[18px] outline-none focus:outline-none overflow-visible select-text"
                             style={{
                               WebkitTextStroke: "3px #000",
                               WebkitTextFillColor: "#fff",
@@ -486,13 +530,90 @@ export default function SlideshowsPage() {
                               whiteSpace: "pre-wrap",
                             }}
                           >
-                            {editingValue || "Click to enter text..."}
+                            {(() => {
+                              const seed =
+                                editingValue || "Click to enter text...";
+                              if (!seededRef.current && editingRef.current) {
+                                editingRef.current.innerText = seed;
+                                seededRef.current = true;
+                                const range = document.createRange();
+                                range.selectNodeContents(editingRef.current);
+                                range.collapse(false);
+                                const sel = window.getSelection();
+                                sel?.removeAllRanges();
+                                sel?.addRange(range);
+                              }
+                              return null;
+                            })()}
                           </div>
+                          {/* Horizontal resize handles */}
+                          <div
+                            className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-white rounded cursor-ew-resize"
+                            title="Resize"
+                            onMouseDown={(e) => {
+                              const container =
+                                (e.currentTarget.parentElement
+                                  ?.parentElement as HTMLElement) || undefined;
+                              const rect = container?.getBoundingClientRect();
+                              if (!rect) return;
+                              setDragMode("resize-l");
+                              const boxEl =
+                                editingRef.current as HTMLElement | null;
+                              const boxRect = boxEl?.getBoundingClientRect();
+                              dragStart.current = {
+                                x: e.clientX,
+                                y: e.clientY,
+                                slideIdx: idx,
+                                box: textBoxes[idx] || {
+                                  x: 50,
+                                  y: 50,
+                                  widthPct: 85,
+                                },
+                                rect,
+                                boxPxW: boxRect?.width,
+                                boxPxH: boxRect?.height,
+                              };
+                            }}
+                          />
+                          <div
+                            className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-6 bg-white rounded cursor-ew-resize"
+                            title="Resize"
+                            onMouseDown={(e) => {
+                              const container =
+                                (e.currentTarget.parentElement
+                                  ?.parentElement as HTMLElement) || undefined;
+                              const rect = container?.getBoundingClientRect();
+                              if (!rect) return;
+                              setDragMode("resize-r");
+                              const boxEl =
+                                editingRef.current as HTMLElement | null;
+                              const boxRect = boxEl?.getBoundingClientRect();
+                              dragStart.current = {
+                                x: e.clientX,
+                                y: e.clientY,
+                                slideIdx: idx,
+                                box: textBoxes[idx] || {
+                                  x: 50,
+                                  y: 50,
+                                  widthPct: 85,
+                                },
+                                rect,
+                                boxPxW: boxRect?.width,
+                                boxPxH: boxRect?.height,
+                              };
+                            }}
+                          />
                         </div>
                       ) : (
                         previewTexts[idx] && (
-                          <div
-                            className="absolute p-3 pointer-events-none"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSlide(idx);
+                              setEditingOriginal(previewTexts[idx] || "");
+                              setEditingValue(previewTexts[idx] || "");
+                            }}
+                            className="absolute p-3 text-left"
                             style={{
                               left: `${textBoxes[idx]?.x ?? 50}%`,
                               top: `${textBoxes[idx]?.y ?? 50}%`,
@@ -512,7 +633,7 @@ export default function SlideshowsPage() {
                             >
                               {previewTexts[idx]}
                             </p>
-                          </div>
+                          </button>
                         )
                       )}
                     </div>
@@ -550,6 +671,7 @@ export default function SlideshowsPage() {
                             setEditingSlide(idx);
                             setEditingOriginal(previewTexts[idx] || "");
                             setEditingValue(previewTexts[idx] || "");
+                            seededRef.current = false;
                           }}
                           disabled={editingSlide !== null}
                         >
