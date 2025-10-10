@@ -2,7 +2,7 @@
 // This file demonstrates how to use Drizzle with your schema
 
 import { db } from "./index";
-import { slideshows, waitlist, posts } from "./schema";
+import { slideshows, waitlist, posts, ucgTemplates, ucgVideos } from "./schema";
 import { eq, desc } from "drizzle-orm";
 
 // ============================================
@@ -159,5 +159,148 @@ export async function updatePost(
 
 export async function deletePost(id: number) {
   await db.delete(posts).where(eq(posts.id, id));
+}
+
+// ============================================
+// UCG TEMPLATES QUERIES
+// ============================================
+
+export async function createUcgTemplate(data: {
+  status?: "DONE" | "PENDING" | "FAILED";
+  title?: string;
+  adPrompt?: string;
+  imageUrl?: string;
+  imageId?: string;
+}) {
+  const [template] = await db
+    .insert(ucgTemplates)
+    .values(data)
+    .returning();
+  return template;
+}
+
+export async function getAllUcgTemplates() {
+  return await db
+    .select()
+    .from(ucgTemplates)
+    .orderBy(desc(ucgTemplates.createdAt));
+}
+
+export async function getUcgTemplateById(id: number) {
+  const [template] = await db
+    .select()
+    .from(ucgTemplates)
+    .where(eq(ucgTemplates.id, id))
+    .limit(1);
+  return template;
+}
+
+export async function getUcgTemplatesByStatus(status: "DONE" | "PENDING" | "FAILED") {
+  return await db
+    .select()
+    .from(ucgTemplates)
+    .where(eq(ucgTemplates.status, status))
+    .orderBy(desc(ucgTemplates.createdAt));
+}
+
+export async function updateUcgTemplateStatus(id: number, status: "DONE" | "PENDING" | "FAILED") {
+  const [template] = await db
+    .update(ucgTemplates)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(ucgTemplates.id, id))
+    .returning();
+  return template;
+}
+
+export async function updateUcgTemplate(
+  id: number,
+  data: Partial<{
+    status: "DONE" | "PENDING" | "FAILED";
+    title: string;
+    adPrompt: string;
+    imageUrl: string;
+    imageId: string;
+  }>
+) {
+  const [template] = await db
+    .update(ucgTemplates)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(ucgTemplates.id, id))
+    .returning();
+  return template;
+}
+
+export async function deleteUcgTemplate(id: number) {
+  await db.delete(ucgTemplates).where(eq(ucgTemplates.id, id));
+}
+
+// ============================================
+// UCG VIDEOS QUERIES
+// ============================================
+
+export async function createUcgVideo(data: {
+  templateId: number;
+  postId?: number;
+  bucketId?: string;
+  bucketUrl?: string;
+}) {
+  const [video] = await db
+    .insert(ucgVideos)
+    .values(data)
+    .returning();
+  return video;
+}
+
+export async function getAllUcgVideos() {
+  return await db
+    .select()
+    .from(ucgVideos)
+    .orderBy(desc(ucgVideos.createdAt));
+}
+
+export async function getUcgVideoById(id: number) {
+  const [video] = await db
+    .select()
+    .from(ucgVideos)
+    .where(eq(ucgVideos.id, id))
+    .limit(1);
+  return video;
+}
+
+export async function getUcgVideosByTemplateId(templateId: number) {
+  return await db
+    .select()
+    .from(ucgVideos)
+    .where(eq(ucgVideos.templateId, templateId))
+    .orderBy(desc(ucgVideos.createdAt));
+}
+
+export async function getUcgVideoByPostId(postId: number) {
+  const [video] = await db
+    .select()
+    .from(ucgVideos)
+    .where(eq(ucgVideos.postId, postId))
+    .limit(1);
+  return video;
+}
+
+export async function updateUcgVideo(
+  id: number,
+  data: Partial<{
+    postId: number;
+    bucketId: string;
+    bucketUrl: string;
+  }>
+) {
+  const [video] = await db
+    .update(ucgVideos)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(ucgVideos.id, id))
+    .returning();
+  return video;
+}
+
+export async function deleteUcgVideo(id: number) {
+  await db.delete(ucgVideos).where(eq(ucgVideos.id, id));
 }
 
