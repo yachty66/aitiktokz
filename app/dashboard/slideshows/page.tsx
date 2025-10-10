@@ -79,6 +79,31 @@ export default function SlideshowsPage() {
     return next;
   }
 
+  function deleteSlideAt(index: number) {
+    // Remove across all parallel arrays
+    setPreviewImages((prev) => prev.filter((_, i) => i !== index));
+    setPreviewTexts((prev) => prev.filter((_, i) => i !== index));
+    setTextBoxes((prev) => prev.filter((_, i) => i !== index));
+    setDurations((prev) => prev.filter((_, i) => i !== index));
+
+    // Adjust indices/states that reference slides
+    const newLen = Math.max(previewImages.length - 1, 0);
+    setCurrentSlide((curr) => (newLen ? Math.min(index, newLen - 1) : 0));
+    if (editingSlide !== null) {
+      if (editingSlide === index) setEditingSlide(null);
+      else if (editingSlide > index) setEditingSlide(editingSlide - 1);
+    }
+    if (imagePickerForSlide !== null) {
+      if (imagePickerForSlide === index) setImagePickerForSlide(null);
+      else if (imagePickerForSlide > index)
+        setImagePickerForSlide(imagePickerForSlide - 1);
+    }
+    setOpenDurationFor(null);
+    setDurationMenuPos(null);
+    setOpenAspectFor(null);
+    setAspectMenuPos(null);
+  }
+
   // Auto-scroll the preview strip to keep the focused slide in view
   useEffect(() => {
     const container = stripRef.current;
@@ -879,7 +904,12 @@ export default function SlideshowsPage() {
                               document.body
                             )}
                         </div>
-                        <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow border border-white/10">
+                        <button
+                          className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow border border-white/10"
+                          aria-label="Delete slide"
+                          title="Delete slide"
+                          onClick={() => deleteSlideAt(idx)}
+                        >
                           <svg
                             className="w-4 h-4 text-red-500"
                             fill="none"
