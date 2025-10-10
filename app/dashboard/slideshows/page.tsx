@@ -229,7 +229,7 @@ export default function SlideshowsPage() {
           </div>
 
           {/* Preview Area */}
-          <div className="bg-white/5 border border-white/10 rounded-md h-[380px] md:h-[430px] flex items-center overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-md h-[380px] md:h-[430px] flex items-center overflow-hidden relative">
             {previewImages.length === 0 ? (
               <div className="w-full flex items-center justify-center">
                 <p className="text-white/40 text-sm">No preview available</p>
@@ -237,37 +237,95 @@ export default function SlideshowsPage() {
             ) : (
               <div
                 ref={stripRef}
-                className="w-full h-full overflow-x-auto flex items-center gap-6 px-6 snap-x snap-mandatory"
+                className="w-full h-full overflow-x-auto flex items-start gap-8 px-6 snap-x snap-mandatory"
               >
                 {previewImages.map((src, idx) => (
                   <div
                     key={idx}
                     data-slide-idx={idx}
-                    className={`snap-center flex-shrink-0 w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative transition-transform ${
+                    className={`snap-center flex-shrink-0 flex flex-col items-center ${
                       idx === currentSlide ? "scale-100" : "scale-95 opacity-90"
-                    }`}
+                    } transition-transform`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={src}
-                      alt="preview"
-                      className="w-full h-full object-cover"
-                    />
-                    {previewTexts[idx] && (
-                      <div className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none">
-                        <p
-                          className="text-center font-extrabold leading-tight tracking-tight text-[18px]"
-                          style={{
-                            color: "#ffffff",
-                            WebkitTextFillColor: "#ffffff",
-                            WebkitTextStroke: "3px #000000",
-                            paintOrder: "stroke fill",
-                            textShadow: "none",
-                            maxWidth: "85%",
-                          }}
-                        >
-                          {previewTexts[idx]}
-                        </p>
+                    <div className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt="preview"
+                        className="w-full h-full object-cover"
+                      />
+                      {previewTexts[idx] && (
+                        <div className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none">
+                          <p
+                            className="text-center font-extrabold leading-tight tracking-tight text-[18px]"
+                            style={{
+                              color: "#ffffff",
+                              WebkitTextFillColor: "#ffffff",
+                              WebkitTextStroke: "3px #000000",
+                              paintOrder: "stroke fill",
+                              textShadow: "none",
+                              maxWidth: "85%",
+                            }}
+                          >
+                            {previewTexts[idx]}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {idx === currentSlide && (
+                      <div className="mt-3 flex items-center gap-3">
+                        <button className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow border border-white/10">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow border border-white/10">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+                            />
+                          </svg>
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10">
+                          2s
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10">
+                          4:5
+                        </button>
+                        <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow border border-white/10">
+                          <svg
+                            className="w-4 h-4 text-red-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -306,80 +364,7 @@ export default function SlideshowsPage() {
             </div>
           )}
 
-          {/* Editor Controls */}
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
-                />
-              </svg>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-            >
-              2s
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-            >
-              4:5
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </Button>
-          </div>
+          {/* Controls below arrows removed; controls render under active slide above */}
 
           {/* Thumbnail Strip */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
