@@ -30,6 +30,21 @@ export default function SlideshowsPage() {
   const [previewTexts, setPreviewTexts] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const stripRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll the preview strip to keep the focused slide in view
+  useEffect(() => {
+    const container = stripRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(
+      `[data-slide-idx="${currentSlide}"]`
+    );
+    if (!el) return;
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [currentSlide]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
@@ -227,6 +242,7 @@ export default function SlideshowsPage() {
                 {previewImages.map((src, idx) => (
                   <div
                     key={idx}
+                    data-slide-idx={idx}
                     className={`snap-center flex-shrink-0 w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative transition-transform ${
                       idx === currentSlide ? "scale-100" : "scale-95 opacity-90"
                     }`}
