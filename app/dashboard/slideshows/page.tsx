@@ -34,6 +34,20 @@ export default function SlideshowsPage() {
   const dragFromRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [editingSlide, setEditingSlide] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState<string>("");
+  const [editingOriginal, setEditingOriginal] = useState<string>("");
+  const [textBoxes, setTextBoxes] = useState<
+    { x: number; y: number; widthPct: number }[]
+  >([]);
+  const [dragMode, setDragMode] = useState<"none" | "move" | "resize">("none");
+  const dragStart = useRef<{
+    x: number;
+    y: number;
+    slideIdx: number;
+    box: { x: number; y: number; widthPct: number };
+    rect: DOMRect;
+  } | null>(null);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -236,6 +250,7 @@ export default function SlideshowsPage() {
                 const txts = (data.slides || []).map((s) => s.text);
                 setPreviewImages(imgs);
                 setPreviewTexts(txts);
+                setTextBoxes(txts.map(() => ({ x: 50, y: 50, widthPct: 85 })));
                 setCurrentSlide(0);
               } catch (e) {
                 console.error("Load random images error", e);
@@ -292,29 +307,213 @@ export default function SlideshowsPage() {
                       idx === currentSlide ? "scale-100" : "scale-95 opacity-90"
                     } transition-transform`}
                   >
-                    <div className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative">
+                    <div
+                      className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative"
+                      data-slide-container={idx}
+                      onMouseMove={(e) => {
+                        if (dragMode === "none") return;
+                        const ds = dragStart.current;
+                        if (!ds || ds.slideIdx !== idx) return;
+                        const dx = e.clientX - ds.x;
+                        const dy = e.clientY - ds.y;
+                        const w = ds.rect.width || 1;
+                        const h = ds.rect.height || 1;
+                        if (dragMode === "move") {
+                          const nx = Math.min(
+                            100,
+                            Math.max(0, ds.box.x + (dx / w) * 100)
+                          );
+                          const ny = Math.min(
+                            100,
+                            Math.max(0, ds.box.y + (dy / h) * 100)
+                          );
+                          setTextBoxes((prev) => {
+                            const next = [...prev];
+                            next[idx] = {
+                              ...((next[idx] as any) || {
+                                x: 50,
+                                y: 50,
+                                widthPct: 85,
+                              }),
+                              x: nx,
+                              y: ny,
+                            };
+                            return next;
+                          });
+                        } else if (dragMode === "resize") {
+                          const nw = Math.min(
+                            95,
+                            Math.max(10, ds.box.widthPct + (dx / w) * 100)
+                          );
+                          setTextBoxes((prev) => {
+                            const next = [...prev];
+                            next[idx] = {
+                              ...((next[idx] as any) || {
+                                x: 50,
+                                y: 50,
+                                widthPct: 85,
+                              }),
+                              widthPct: nw,
+                            };
+                            return next;
+                          });
+                        }
+                      }}
+                      onMouseUp={() => {
+                        setDragMode("none");
+                        dragStart.current = null;
+                      }}
+                      onMouseLeave={() => {
+                        setDragMode("none");
+                        dragStart.current = null;
+                      }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={src}
                         alt="preview"
                         className="w-full h-full object-cover"
                       />
-                      {previewTexts[idx] && (
-                        <div className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none">
-                          <p
-                            className="text-center font-extrabold leading-tight tracking-tight text-[18px]"
+                      {editingSlide === idx ? (
+                        <div
+                          className="absolute p-0"
+                          style={{
+                            left: `${textBoxes[idx]?.x ?? 50}%`,
+                            top: `${textBoxes[idx]?.y ?? 50}%`,
+                            width: `${textBoxes[idx]?.widthPct ?? 85}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          <div
+                            className="absolute -top-2 -left-2 w-4 h-4 rounded bg-white text-black flex items-center justify-center border border-white/30 cursor-move"
+                            title="Drag to move"
+                            onMouseDown={(e) => {
+                              const container =
+                                (e.currentTarget.parentElement
+                                  ?.parentElement as HTMLElement) || undefined;
+                              const rect = container?.getBoundingClientRect();
+                              if (!rect) return;
+                              setDragMode("move");
+                              dragStart.current = {
+                                x: e.clientX,
+                                y: e.clientY,
+                                slideIdx: idx,
+                                box: textBoxes[idx] || {
+                                  x: 50,
+                                  y: 50,
+                                  widthPct: 85,
+                                },
+                                rect,
+                              };
+                              e.stopPropagation();
+                            }}
+                          />
+                          <div
+                            contentEditable
+                            suppressContentEditableWarning
+                            role="textbox"
+                            aria-label="Edit text"
+                            onInput={(e) =>
+                              setEditingValue(
+                                (e.target as HTMLElement).innerText
+                              )
+                            }
+                            onKeyDown={(e) => {
+                              if (
+                                (e.metaKey || e.ctrlKey) &&
+                                e.key === "Enter"
+                              ) {
+                                const text = (e.currentTarget as HTMLElement)
+                                  .innerText;
+                                setPreviewTexts((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = text;
+                                  return next;
+                                });
+                                setEditingSlide(null);
+                                e.preventDefault();
+                              } else if (e.key === "Escape") {
+                                (e.currentTarget as HTMLElement).innerText =
+                                  editingOriginal;
+                                setEditingValue(editingOriginal);
+                                setEditingSlide(null);
+                                e.preventDefault();
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const text = (e.currentTarget as HTMLElement)
+                                .innerText;
+                              setPreviewTexts((prev) => {
+                                const next = [...prev];
+                                next[idx] = text;
+                                return next;
+                              });
+                              const container =
+                                (e.currentTarget.parentElement
+                                  ?.parentElement as HTMLElement) || null;
+                              const rect = container?.getBoundingClientRect();
+                              if (rect) {
+                                const widthPct = Math.max(
+                                  10,
+                                  Math.min(
+                                    95,
+                                    ((e.currentTarget as HTMLElement)
+                                      .offsetWidth /
+                                      rect.width) *
+                                      100
+                                  )
+                                );
+                                setTextBoxes((prev) => {
+                                  const next = [...prev];
+                                  next[idx] = {
+                                    ...(next[idx] || {
+                                      x: 50,
+                                      y: 50,
+                                      widthPct: 85,
+                                    }),
+                                    widthPct,
+                                  };
+                                  return next;
+                                });
+                              }
+                              setEditingSlide(null);
+                            }}
+                            className="w-full min-h-[3rem] bg-white/10 backdrop-blur-sm border border-white/30 rounded-md px-3 py-2 text-white text-center font-extrabold leading-tight tracking-tight text-[18px] outline-none focus:outline-none resize-both overflow-auto select-text"
                             style={{
-                              color: "#ffffff",
-                              WebkitTextFillColor: "#ffffff",
-                              WebkitTextStroke: "3px #000000",
+                              WebkitTextStroke: "3px #000",
+                              WebkitTextFillColor: "#fff",
                               paintOrder: "stroke fill",
-                              textShadow: "none",
-                              maxWidth: "85%",
+                              whiteSpace: "pre-wrap",
                             }}
                           >
-                            {previewTexts[idx]}
-                          </p>
+                            {editingValue || "Click to enter text..."}
+                          </div>
                         </div>
+                      ) : (
+                        previewTexts[idx] && (
+                          <div
+                            className="absolute p-3 pointer-events-none"
+                            style={{
+                              left: `${textBoxes[idx]?.x ?? 50}%`,
+                              top: `${textBoxes[idx]?.y ?? 50}%`,
+                              width: `${textBoxes[idx]?.widthPct ?? 85}%`,
+                              transform: "translate(-50%, -50%)",
+                            }}
+                          >
+                            <p
+                              className="text-center font-extrabold leading-tight tracking-tight text-[18px]"
+                              style={{
+                                color: "#ffffff",
+                                WebkitTextFillColor: "#ffffff",
+                                WebkitTextStroke: "3px #000000",
+                                paintOrder: "stroke fill",
+                                textShadow: "none",
+                              }}
+                            >
+                              {previewTexts[idx]}
+                            </p>
+                          </div>
+                        )
                       )}
                     </div>
 
@@ -347,6 +546,12 @@ export default function SlideshowsPage() {
                           className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow border border-white/10"
                           aria-label="Edit text"
                           title="Edit text"
+                          onClick={() => {
+                            setEditingSlide(idx);
+                            setEditingOriginal(previewTexts[idx] || "");
+                            setEditingValue(previewTexts[idx] || "");
+                          }}
+                          disabled={editingSlide !== null}
                         >
                           <Type className="w-4 h-4" />
                         </button>
