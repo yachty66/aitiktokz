@@ -63,6 +63,14 @@ export default function SlideshowsPage() {
     boxPxW?: number;
     boxPxH?: number;
   } | null>(null);
+  const [aspect, setAspect] = useState<"1:1" | "4:5" | "3:4" | "9:16">("4:5");
+  const [openAspectFor, setOpenAspectFor] = useState<number | null>(null);
+  const aspectMenuRef = useRef<HTMLDivElement | null>(null);
+  const aspectMenuPortalRef = useRef<HTMLDivElement | null>(null);
+  const [aspectMenuPos, setAspectMenuPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -133,6 +141,33 @@ export default function SlideshowsPage() {
       });
     }
   }, [editingSlide]);
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (!(e.target instanceof Node)) return;
+      const insideBtn =
+        !!aspectMenuRef.current && aspectMenuRef.current.contains(e.target);
+      const insidePortal =
+        !!aspectMenuPortalRef.current &&
+        aspectMenuPortalRef.current.contains(e.target);
+      if (!insideBtn && !insidePortal) {
+        setOpenAspectFor(null);
+        setAspectMenuPos(null);
+      }
+    }
+    if (openAspectFor !== null) {
+      document.addEventListener("mousedown", onClickOutside);
+      const onResize = () => {
+        setOpenAspectFor(null);
+        setAspectMenuPos(null);
+      };
+      window.addEventListener("resize", onResize);
+      return () => {
+        document.removeEventListener("mousedown", onClickOutside);
+        window.removeEventListener("resize", onResize);
+      };
+    }
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [openAspectFor]);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [imageSearch, setImageSearch] = useState("");
@@ -371,7 +406,15 @@ export default function SlideshowsPage() {
                     } transition-transform`}
                   >
                     <div
-                      className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative"
+                      className={`w-44 ${
+                        aspect === "1:1"
+                          ? "aspect-square"
+                          : aspect === "4:5"
+                          ? "aspect-[4/5]"
+                          : aspect === "3:4"
+                          ? "aspect-[3/4]"
+                          : "aspect-[9/16]"
+                      } bg-black/40 rounded-md overflow-hidden shadow relative`}
                       data-slide-container={idx}
                       onMouseMove={(e) => {
                         if (dragMode === "none") return;
@@ -781,9 +824,61 @@ export default function SlideshowsPage() {
                               document.body
                             )}
                         </div>
-                        <button className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10">
-                          4:5
-                        </button>
+                        <div
+                          className="relative"
+                          ref={idx === openAspectFor ? aspectMenuRef : null}
+                        >
+                          <button
+                            className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10"
+                            onClick={(e) => {
+                              const btn = e.currentTarget as HTMLElement;
+                              const rect = btn.getBoundingClientRect();
+                              setAspectMenuPos({
+                                top: rect.bottom + 8,
+                                left: rect.left + rect.width / 2,
+                              });
+                              setOpenAspectFor(
+                                openAspectFor === idx ? null : idx
+                              );
+                            }}
+                            aria-haspopup="menu"
+                            aria-expanded={openAspectFor === idx}
+                            title="Aspect ratio"
+                          >
+                            {aspect}
+                          </button>
+                          {openAspectFor === idx &&
+                            aspectMenuPos &&
+                            createPortal(
+                              <div
+                                ref={aspectMenuPortalRef}
+                                className="fixed z-50 w-36 bg-white text-black rounded-md shadow-lg border border-black/10"
+                                role="menu"
+                                style={{
+                                  top: `${aspectMenuPos.top}px`,
+                                  left: `${aspectMenuPos.left - 72}px`,
+                                }}
+                              >
+                                {["1:1", "4:5", "3:4", "9:16"].map((opt) => (
+                                  <button
+                                    key={opt}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-black/5 ${
+                                      aspect === opt ? "bg-black/5" : ""
+                                    }`}
+                                    onClick={() => {
+                                      setAspect(opt as any);
+                                      setOpenAspectFor(null);
+                                      setAspectMenuPos(null);
+                                    }}
+                                    role="menuitem"
+                                  >
+                                    {opt}
+                                  </button>
+                                ))}
+                              </div>,
+                              document.body
+                            )}
+                        </div>
                         <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow border border-white/10">
                           <svg
                             className="w-4 h-4 text-red-500"
