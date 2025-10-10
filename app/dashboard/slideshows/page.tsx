@@ -228,8 +228,18 @@ export default function SlideshowsPage() {
                       className="w-full h-full object-cover"
                     />
                     {previewTexts[idx] && (
-                      <div className="absolute inset-0 flex items-center justify-center p-2">
-                        <p className="text-center text-xs text-white drop-shadow-md bg-black/40 rounded px-2 py-1">
+                      <div className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none">
+                        <p
+                          className="text-center font-extrabold leading-tight tracking-tight text-[18px]"
+                          style={{
+                            color: "#ffffff",
+                            WebkitTextFillColor: "#ffffff",
+                            WebkitTextStroke: "3px #000000",
+                            paintOrder: "stroke fill",
+                            textShadow: "none",
+                            maxWidth: "85%",
+                          }}
+                        >
                           {previewTexts[idx]}
                         </p>
                       </div>
