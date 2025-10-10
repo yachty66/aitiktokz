@@ -31,6 +31,8 @@ export default function SlideshowsPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const dragFromRef = useRef<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -399,11 +401,18 @@ export default function SlideshowsPage() {
                     key={idx}
                     role="button"
                     tabIndex={0}
+                    title="Drag to reorder"
                     className={`relative flex-shrink-0 w-12 h-12 rounded overflow-hidden border ${
                       idx === currentSlide
                         ? "border-white ring-1 ring-white"
                         : "border-white/10"
-                    } bg-white/5 cursor-move`}
+                    } bg-white/5 ${
+                      isDragging ? "cursor-grabbing" : "cursor-move"
+                    } ${dragFromRef.current === idx ? "opacity-50" : ""} ${
+                      dragOverIndex === idx
+                        ? "outline outline-2 outline-white"
+                        : ""
+                    }`}
                     draggable
                     onClick={() => setCurrentSlide(idx)}
                     onKeyDown={(e) => {
@@ -412,21 +421,41 @@ export default function SlideshowsPage() {
                     }}
                     onDragStart={() => {
                       dragFromRef.current = idx;
+                      setIsDragging(true);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      setDragOverIndex(idx);
                     }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
+                      setDragOverIndex(idx);
+                    }}
+                    onDragLeave={() => {
+                      setDragOverIndex((v) => (v === idx ? null : v));
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
                       const from = dragFromRef.current;
                       dragFromRef.current = null;
+                      setIsDragging(false);
+                      setDragOverIndex(null);
                       if (from == null || from === idx) return;
                       setPreviewImages((prev) => moveItem(prev, from, idx));
                       setPreviewTexts((prev) => moveItem(prev, from, idx));
                       setCurrentSlide(idx);
                     }}
+                    onDragEnd={() => {
+                      dragFromRef.current = null;
+                      setIsDragging(false);
+                      setDragOverIndex(null);
+                    }}
                   >
+                    {/* drop target indicator */}
+                    {dragOverIndex === idx && (
+                      <div className="absolute left-0 top-0 h-full w-[3px] bg-white/80" />
+                    )}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={src}
