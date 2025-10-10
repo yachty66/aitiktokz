@@ -2,7 +2,6 @@ import {
   pgTable,
   text,
   timestamp,
-  serial,
   jsonb,
   uuid,
   integer,
@@ -43,7 +42,7 @@ export const posts = pgTable("posts", {
 
 // Exported slideshows table – snapshot of a slideshow at the time of export
 export const exportedSlideshows = pgTable("exported_slideshows", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
