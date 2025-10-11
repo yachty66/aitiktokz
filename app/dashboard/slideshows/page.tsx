@@ -27,6 +27,7 @@ export default function SlideshowsPage() {
     null
   );
   const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewTexts, setPreviewTexts] = useState<string[]>([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
@@ -155,12 +156,24 @@ export default function SlideshowsPage() {
             onClick={async () => {
               try {
                 setIsPreviewLoading(true);
-                const res = await fetch(
-                  "/api/images/random?n=5&prefix=pinterest-surrealism/"
-                );
-                if (!res.ok) throw new Error("Failed to load images");
-                const data = (await res.json()) as { images?: string[] };
-                setPreviewImages(data.images || []);
+                // Step 1: Ask server to infer number of slides + generate texts, and pick images
+                const res = await fetch("/api/slides/generate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    prompt,
+                    prefix: "pinterest-surrealism/",
+                  }),
+                });
+                if (!res.ok) throw new Error("Failed to generate slides");
+                const data = (await res.json()) as {
+                  numSlides?: number;
+                  slides?: { text: string; image: string }[];
+                };
+                const imgs = (data.slides || []).map((s) => s.image);
+                const txts = (data.slides || []).map((s) => s.text);
+                setPreviewImages(imgs);
+                setPreviewTexts(txts);
               } catch (e) {
                 console.error("Load random images error", e);
               } finally {
@@ -206,7 +219,7 @@ export default function SlideshowsPage() {
                 {previewImages.map((src, idx) => (
                   <div
                     key={idx}
-                    className="w-40 h-64 bg-black/40 rounded-md overflow-hidden shadow"
+                    className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -214,6 +227,13 @@ export default function SlideshowsPage() {
                       alt="preview"
                       className="w-full h-full object-cover"
                     />
+                    {previewTexts[idx] && (
+                      <div className="absolute inset-0 flex items-center justify-center p-2">
+                        <p className="text-center text-xs text-white drop-shadow-md bg-black/40 rounded px-2 py-1">
+                          {previewTexts[idx]}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
