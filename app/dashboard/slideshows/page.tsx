@@ -1167,9 +1167,6 @@ export default function SlideshowsPage() {
           <button className="pb-3 border-b-2 border-white font-semibold">
             {`Exported Slideshows (${exportedSlideshows.length})`}
           </button>
-          <button className="pb-3 text-white/50 hover:text-white">
-            {`Drafts (0)`}
-          </button>
           <div className="ml-auto flex items-center gap-2 pb-3">
             {(() => {
               const totalPages = Math.max(
@@ -1339,41 +1336,7 @@ export default function SlideshowsPage() {
           )}
         </div>
 
-        {/* Bottom pagination controls for visibility on all screen sizes */}
-        <div className="flex items-center justify-center gap-3 pt-2">
-          {(() => {
-            const totalPages = Math.max(
-              1,
-              Math.ceil(exportedSlideshows.length / pageSize)
-            );
-            return (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/20 text-white hover:bg-white/5"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  ‹
-                </Button>
-                <span className="text-sm text-white/50">{`Page ${Math.min(
-                  page,
-                  totalPages
-                )} of ${totalPages}`}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/20 text-white hover:bg-white/5"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                >
-                  ›
-                </Button>
-              </>
-            );
-          })()}
-        </div>
+        {/* Bottom pagination removed – top-right controls are sufficient */}
       </div>
 
       {/* Template Library Modal */}
