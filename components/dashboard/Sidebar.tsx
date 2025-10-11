@@ -15,6 +15,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/slideshows", label: "Slideshows" },
   { href: "/dashboard/ucg-videos", label: "UCG Videos" },
+  { href: "/dashboard/tiktok-accounts", label: "TikTok Accounts" },
 ];
 
 export function Sidebar() {
