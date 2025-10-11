@@ -82,6 +82,7 @@ export default function SlideshowsPage() {
     open: boolean;
     slideshow: any | null;
   }>({ open: false, slideshow: null });
+  const [modalSlideIdx, setModalSlideIdx] = useState(0);
 
   // Helpers to composite text over images and upload to S3 before export
   function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
@@ -1449,6 +1450,7 @@ export default function SlideshowsPage() {
                     className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
                     onClick={(e) => {
                       e.stopPropagation();
+                      setModalSlideIdx(0);
                       setShareModal({ open: true, slideshow: ex });
                     }}
                     title="Publish to TikTok"
@@ -1518,28 +1520,70 @@ export default function SlideshowsPage() {
             <div className="p-4 grid grid-cols-1 md:grid-cols-[260px,1fr] gap-4">
               {/* Preview carousel */}
               <div className="bg-white/5 rounded-md p-3">
-                <div className="aspect-[9/16] bg-black/30 rounded overflow-hidden flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={
-                      shareModal.slideshow.thumbnail_url ||
-                      shareModal.slideshow.data?.images?.[0]
-                    }
-                    alt="preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex items-center justify-center gap-1 mt-2">
-                  {Array.isArray(shareModal.slideshow?.data?.images) &&
-                    shareModal.slideshow.data.images.map(
-                      (_: any, i: number) => (
-                        <span
-                          key={i}
-                          className="w-1.5 h-1.5 rounded-full bg-white/50"
-                        />
-                      )
-                    )}
-                </div>
+                {(() => {
+                  const slides: string[] = Array.isArray(
+                    shareModal.slideshow?.data?.images
+                  )
+                    ? (shareModal.slideshow.data.images as string[])
+                    : [];
+                  const total = slides.length || 1;
+                  const activeSrc =
+                    slides[modalSlideIdx] ||
+                    shareModal.slideshow?.thumbnail_url ||
+                    slides[0];
+                  return (
+                    <>
+                      <div className="relative aspect-[9/16] bg-black/30 rounded overflow-hidden flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {activeSrc ? (
+                          <img
+                            src={activeSrc}
+                            alt="preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full" />
+                        )}
+                        {total > 1 && (
+                          <>
+                            <button
+                              aria-label="Previous slide"
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                              onClick={() =>
+                                setModalSlideIdx(
+                                  (i) => (((i - 1) % total) + total) % total
+                                )
+                              }
+                            >
+                              ‹
+                            </button>
+                            <button
+                              aria-label="Next slide"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                              onClick={() =>
+                                setModalSlideIdx((i) => (i + 1) % total)
+                              }
+                            >
+                              ›
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-center gap-1 mt-2">
+                        {slides.map((_, i) => (
+                          <button
+                            key={i}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              i === modalSlideIdx ? "bg-white" : "bg-white/40"
+                            }`}
+                            aria-label={`Go to slide ${i + 1}`}
+                            onClick={() => setModalSlideIdx(i)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               {/* Form */}
               <div className="space-y-3 flex flex-col min-h-[420px]">
