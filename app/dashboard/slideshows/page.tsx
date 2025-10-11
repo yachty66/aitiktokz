@@ -26,6 +26,8 @@ export default function SlideshowsPage() {
   const [analyzingTemplateId, setAnalyzingTemplateId] = useState<string | null>(
     null
   );
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
   const [imageSearch, setImageSearch] = useState("");
@@ -148,21 +150,26 @@ export default function SlideshowsPage() {
           </Card>
 
           {/* Generate Button */}
-          <Button className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-6 text-lg">
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Generate
+          <Button
+            className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-6 text-lg"
+            onClick={async () => {
+              try {
+                setIsPreviewLoading(true);
+                const res = await fetch(
+                  "/api/images/random?n=5&prefix=pinterest-surrealism/"
+                );
+                if (!res.ok) throw new Error("Failed to load images");
+                const data = (await res.json()) as { images?: string[] };
+                setPreviewImages(data.images || []);
+              } catch (e) {
+                console.error("Load random images error", e);
+              } finally {
+                setIsPreviewLoading(false);
+              }
+            }}
+            disabled={isPreviewLoading}
+          >
+            {isPreviewLoading ? "Loading…" : "Generate"}
           </Button>
         </div>
 
@@ -191,8 +198,26 @@ export default function SlideshowsPage() {
           </div>
 
           {/* Preview Area */}
-          <div className="bg-white/5 border border-white/10 rounded-md aspect-[9/16] flex items-center justify-center">
-            <p className="text-white/40 text-sm">No preview available</p>
+          <div className="bg-white/5 border border-white/10 rounded-md aspect-[9/16] flex items-center justify-center overflow-hidden">
+            {previewImages.length === 0 ? (
+              <p className="text-white/40 text-sm">No preview available</p>
+            ) : (
+              <div className="flex gap-6 px-6">
+                {previewImages.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="w-40 h-64 bg-black/40 rounded-md overflow-hidden shadow"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt="preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Editor Controls */}
@@ -288,8 +313,22 @@ export default function SlideshowsPage() {
           </div>
 
           {/* Export Button */}
-          <Button className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-4 text-lg">
-            Export
+          <Button
+            className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-4 text-lg"
+            onClick={async () => {
+              try {
+                const res = await fetch(
+                  "/api/images/random?n=5&prefix=pinterest-surrealism/"
+                );
+                if (!res.ok) throw new Error("Failed to load images");
+                const data = (await res.json()) as { images?: string[] };
+                setPreviewImages(data.images || []);
+              } catch (e) {
+                console.error("Load random images error", e);
+              }
+            }}
+          >
+            Generate
           </Button>
         </Card>
       </div>
