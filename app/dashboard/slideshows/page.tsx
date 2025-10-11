@@ -73,6 +73,11 @@ export default function SlideshowsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportedSlideshows, setExportedSlideshows] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 12; // cards per page
+  const [cardSlideIndex, setCardSlideIndex] = useState<Record<string, number>>(
+    {}
+  );
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -331,6 +336,11 @@ export default function SlideshowsPage() {
   useEffect(() => {
     loadExports();
   }, []);
+
+  // Reset to first page whenever the dataset changes
+  useEffect(() => {
+    setPage(1);
+  }, [exportedSlideshows.length]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1153,7 +1163,7 @@ export default function SlideshowsPage() {
       {/* Bottom Section - Exported & Drafts */}
       <div className="mt-12 space-y-6">
         {/* Tabs */}
-        <div className="flex items-center gap-6 border-b border-white/10">
+        <div className="flex items-center gap-6 border-b border-white/10 flex-wrap justify-between">
           <button className="pb-3 border-b-2 border-white font-semibold">
             {`Exported Slideshows (${exportedSlideshows.length})`}
           </button>
@@ -1161,73 +1171,138 @@ export default function SlideshowsPage() {
             {`Drafts (0)`}
           </button>
           <div className="ml-auto flex items-center gap-2 pb-3">
-            <span className="text-sm text-white/50">Page 1 of 1</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-              disabled
-            >
-              ‹
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-              disabled
-            >
-              ›
-            </Button>
+            {(() => {
+              const totalPages = Math.max(
+                1,
+                Math.ceil(exportedSlideshows.length / pageSize)
+              );
+              return (
+                <>
+                  <span className="text-sm text-white/50">{`Page ${Math.min(
+                    page,
+                    totalPages
+                  )} of ${totalPages}`}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    ‹
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    ›
+                  </Button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
         {/* Grid of Slideshows (from Supabase) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {exportedSlideshows.map((ex) => (
+          {(() => {
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            return exportedSlideshows.slice(start, end);
+          })().map((ex) => (
             <Card
               key={ex.id}
               className="bg-white/5 border border-white/10 p-3 space-y-3 hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <div
-                className={`${
+              {/* Per-card carousel */}
+              {(() => {
+                const slides: string[] = Array.isArray(ex?.data?.images)
+                  ? ex.data.images.filter(Boolean)
+                  : [];
+                const total = slides.length || 1;
+                const idxKey = String(ex.id);
+                const current = Math.min(
+                  cardSlideIndex[idxKey] ?? 0,
+                  Math.max(0, total - 1)
+                );
+                const go = (delta: number) => {
+                  setCardSlideIndex((prev) => {
+                    const next = { ...prev } as Record<string, number>;
+                    const n = (((current + delta) % total) + total) % total;
+                    next[idxKey] = n;
+                    return next;
+                  });
+                };
+
+                const activeSrc =
+                  slides[current] || ex.thumbnail_url || slides[0];
+                const aspectClass =
                   (ex.aspect || "9:16") === "1:1"
                     ? "aspect-square"
                     : (ex.aspect || "9:16") === "4:5"
                     ? "aspect-[4/5]"
                     : (ex.aspect || "9:16") === "3:4"
                     ? "aspect-[3/4]"
-                    : "aspect-[9/16]"
-                } bg-white/5 rounded-md overflow-hidden`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {ex.thumbnail_url ? (
-                  <img
-                    src={ex.thumbnail_url}
-                    alt={ex.title || "thumbnail"}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
-                )}
-              </div>
-              {/* Slides strip (show up to 6 images) */}
-              {Array.isArray(ex?.data?.images) && ex.data.images.length > 0 && (
-                <div className="grid grid-cols-6 gap-1">
-                  {ex.data.images.slice(0, 6).map((img: string, i: number) => (
-                    <div
-                      key={i}
-                      className="relative w-full aspect-square rounded overflow-hidden bg-white/5"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                    : "aspect-[9/16]";
+
+                return (
+                  <div
+                    className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {activeSrc ? (
                       <img
-                        src={img}
-                        alt={`slide ${i + 1}`}
+                        src={activeSrc}
+                        alt={ex.title || "thumbnail"}
                         className="w-full h-full object-cover"
                       />
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+                    )}
+
+                    {/* Arrows */}
+                    {total > 1 && (
+                      <>
+                        <button
+                          aria-label="Previous slide"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            go(-1);
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <button
+                          aria-label="Next slide"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            go(1);
+                          }}
+                        >
+                          ›
+                        </button>
+
+                        {/* Dots */}
+                        <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1">
+                          {Array.from({ length: total }).map((_, i) => (
+                            <span
+                              key={i}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                i === current ? "bg-white" : "bg-white/40"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white truncate">
                   {ex.title || "Slideshow"}
@@ -1262,6 +1337,42 @@ export default function SlideshowsPage() {
               </div>
             </Card>
           )}
+        </div>
+
+        {/* Bottom pagination controls for visibility on all screen sizes */}
+        <div className="flex items-center justify-center gap-3 pt-2">
+          {(() => {
+            const totalPages = Math.max(
+              1,
+              Math.ceil(exportedSlideshows.length / pageSize)
+            );
+            return (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-white/20 text-white hover:bg-white/5"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                >
+                  ‹
+                </Button>
+                <span className="text-sm text-white/50">{`Page ${Math.min(
+                  page,
+                  totalPages
+                )} of ${totalPages}`}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-white/20 text-white hover:bg-white/5"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                >
+                  ›
+                </Button>
+              </>
+            );
+          })()}
         </div>
       </div>
 
