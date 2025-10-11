@@ -72,6 +72,7 @@ export default function SlideshowsPage() {
   } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedSlideshows, setExportedSlideshows] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -286,12 +287,42 @@ export default function SlideshowsPage() {
   const loadExports = async () => {
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from("exported_slideshows")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setExportedSlideshows(data || []);
+      // resolve user email once
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+      const email = user?.email ?? null;
+      setUserEmail(email);
+
+      // helper to run the base select with safe ordering
+      const runSelect = async (scoped: boolean) => {
+        let q = supabase.from("exported_slideshows").select("*");
+        if (scoped && email) {
+          q = q.eq("user_email", email);
+        }
+        // attempt order by created_at; if fails (column missing), fall back to id
+        let { data, error } = await q.order("created_at", { ascending: false });
+        if (error && (error as any)?.code === "42703") {
+          // column does not exist
+          const res = await q.order("id", { ascending: false });
+          data = res.data;
+          error = res.error;
+        }
+        if (error) throw error;
+        return data || [];
+      };
+
+      // try scoped first; if none, fall back to unscoped (helps older rows without user_email)
+      let rows = await runSelect(true);
+      if ((!rows || rows.length === 0) && !email) {
+        // if no email, we already queried unscoped by nature; nothing else to do
+      } else if (!rows || rows.length === 0) {
+        rows = await runSelect(false);
+      }
+
+      setExportedSlideshows(rows);
     } catch (err) {
       console.error("Error loading exports:", err);
     }
@@ -1124,10 +1155,10 @@ export default function SlideshowsPage() {
         {/* Tabs */}
         <div className="flex items-center gap-6 border-b border-white/10">
           <button className="pb-3 border-b-2 border-white font-semibold">
-            Exported Slideshows (3)
+            {`Exported Slideshows (${exportedSlideshows.length})`}
           </button>
           <button className="pb-3 text-white/50 hover:text-white">
-            Drafts (4)
+            {`Drafts (0)`}
           </button>
           <div className="ml-auto flex items-center gap-2 pb-3">
             <span className="text-sm text-white/50">Page 1 of 1</span>
@@ -1157,7 +1188,17 @@ export default function SlideshowsPage() {
               key={ex.id}
               className="bg-white/5 border border-white/10 p-3 space-y-3 hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <div className="aspect-[9/16] bg-white/5 rounded-md overflow-hidden">
+              <div
+                className={`${
+                  (ex.aspect || "9:16") === "1:1"
+                    ? "aspect-square"
+                    : (ex.aspect || "9:16") === "4:5"
+                    ? "aspect-[4/5]"
+                    : (ex.aspect || "9:16") === "3:4"
+                    ? "aspect-[3/4]"
+                    : "aspect-[9/16]"
+                } bg-white/5 rounded-md overflow-hidden`}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {ex.thumbnail_url ? (
                   <img
@@ -1169,6 +1210,24 @@ export default function SlideshowsPage() {
                   <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
                 )}
               </div>
+              {/* Slides strip (show up to 6 images) */}
+              {Array.isArray(ex?.data?.images) && ex.data.images.length > 0 && (
+                <div className="grid grid-cols-6 gap-1">
+                  {ex.data.images.slice(0, 6).map((img: string, i: number) => (
+                    <div
+                      key={i}
+                      className="relative w-full aspect-square rounded overflow-hidden bg-white/5"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img}
+                        alt={`slide ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white truncate">
                   {ex.title || "Slideshow"}
@@ -1183,11 +1242,8 @@ export default function SlideshowsPage() {
           ))}
 
           {/* Empty State */}
-          {[...Array(1)].map((_, i) => (
-            <Card
-              key={`empty-${i}`}
-              className="bg-white/5 border border-white/10 border-dashed p-3 flex items-center justify-center aspect-[9/16] hover:bg-white/10 transition-colors cursor-pointer"
-            >
+          {exportedSlideshows.length === 0 && (
+            <Card className="bg-white/5 border border-white/10 border-dashed p-3 flex items-center justify-center aspect-[9/16] hover:bg-white/10 transition-colors">
               <div className="text-center">
                 <svg
                   className="w-12 h-12 mx-auto mb-2 text-white/30"
@@ -1202,10 +1258,10 @@ export default function SlideshowsPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                <p className="text-xs text-white/50">Create new</p>
+                <p className="text-xs text-white/50">No slideshows yet</p>
               </div>
             </Card>
-          ))}
+          )}
         </div>
       </div>
 
