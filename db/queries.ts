@@ -2,7 +2,14 @@
 // This file demonstrates how to use Drizzle with your schema
 
 import { db } from "./index";
-import { slideshows, waitlist, posts, ucgTemplates, ucgVideos } from "./schema";
+import {
+  slideshows,
+  waitlist,
+  posts,
+  ucgTemplates,
+  ucgVideos,
+  exportedSlideshows,
+} from "./schema";
 import { eq, desc } from "drizzle-orm";
 
 // ============================================
@@ -10,18 +17,12 @@ import { eq, desc } from "drizzle-orm";
 // ============================================
 
 export async function createSlideshow(data: any) {
-  const [slideshow] = await db
-    .insert(slideshows)
-    .values({ data })
-    .returning();
+  const [slideshow] = await db.insert(slideshows).values({ data }).returning();
   return slideshow;
 }
 
 export async function getAllSlideshows() {
-  return await db
-    .select()
-    .from(slideshows)
-    .orderBy(desc(slideshows.createdAt));
+  return await db.select().from(slideshows).orderBy(desc(slideshows.createdAt));
 }
 
 export async function getSlideshowById(id: number) {
@@ -51,10 +52,7 @@ export async function deleteSlideshow(id: number) {
 // ============================================
 
 export async function addToWaitlist(email: string) {
-  const [entry] = await db
-    .insert(waitlist)
-    .values({ email })
-    .returning();
+  const [entry] = await db.insert(waitlist).values({ email }).returning();
   return entry;
 }
 
@@ -68,10 +66,7 @@ export async function getWaitlistByEmail(email: string) {
 }
 
 export async function getAllWaitlistEntries() {
-  return await db
-    .select()
-    .from(waitlist)
-    .orderBy(desc(waitlist.createdAt));
+  return await db.select().from(waitlist).orderBy(desc(waitlist.createdAt));
 }
 
 // ============================================
@@ -89,26 +84,16 @@ export async function createPost(data: {
   userEmail?: string;
   status?: string;
 }) {
-  const [post] = await db
-    .insert(posts)
-    .values(data)
-    .returning();
+  const [post] = await db.insert(posts).values(data).returning();
   return post;
 }
 
 export async function getAllPosts() {
-  return await db
-    .select()
-    .from(posts)
-    .orderBy(desc(posts.createdAt));
+  return await db.select().from(posts).orderBy(desc(posts.createdAt));
 }
 
 export async function getPostById(id: number) {
-  const [post] = await db
-    .select()
-    .from(posts)
-    .where(eq(posts.id, id))
-    .limit(1);
+  const [post] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
   return post;
 }
 
@@ -172,10 +157,7 @@ export async function createUcgTemplate(data: {
   imageUrl?: string;
   imageId?: string;
 }) {
-  const [template] = await db
-    .insert(ucgTemplates)
-    .values(data)
-    .returning();
+  const [template] = await db.insert(ucgTemplates).values(data).returning();
   return template;
 }
 
@@ -195,7 +177,9 @@ export async function getUcgTemplateById(id: number) {
   return template;
 }
 
-export async function getUcgTemplatesByStatus(status: "DONE" | "PENDING" | "FAILED") {
+export async function getUcgTemplatesByStatus(
+  status: "DONE" | "PENDING" | "FAILED"
+) {
   return await db
     .select()
     .from(ucgTemplates)
@@ -203,7 +187,10 @@ export async function getUcgTemplatesByStatus(status: "DONE" | "PENDING" | "FAIL
     .orderBy(desc(ucgTemplates.createdAt));
 }
 
-export async function updateUcgTemplateStatus(id: number, status: "DONE" | "PENDING" | "FAILED") {
+export async function updateUcgTemplateStatus(
+  id: number,
+  status: "DONE" | "PENDING" | "FAILED"
+) {
   const [template] = await db
     .update(ucgTemplates)
     .set({ status, updatedAt: new Date() })
@@ -244,18 +231,12 @@ export async function createUcgVideo(data: {
   bucketId?: string;
   bucketUrl?: string;
 }) {
-  const [video] = await db
-    .insert(ucgVideos)
-    .values(data)
-    .returning();
+  const [video] = await db.insert(ucgVideos).values(data).returning();
   return video;
 }
 
 export async function getAllUcgVideos() {
-  return await db
-    .select()
-    .from(ucgVideos)
-    .orderBy(desc(ucgVideos.createdAt));
+  return await db.select().from(ucgVideos).orderBy(desc(ucgVideos.createdAt));
 }
 
 export async function getUcgVideoById(id: number) {
@@ -304,3 +285,30 @@ export async function deleteUcgVideo(id: number) {
   await db.delete(ucgVideos).where(eq(ucgVideos.id, id));
 }
 
+// ============================================
+// EXPORTED SLIDESHOWS QUERIES
+// ============================================
+
+export async function createExportedSlideshow(data: {
+  userUid?: string;
+  userEmail?: string;
+  title?: string;
+  prompt?: string;
+  aspect: string; // "1:1" | "4:5" | "3:4" | "9:16"
+  numSlides?: number;
+  totalDurationSec?: number;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  data: any; // full slideshow state
+}) {
+  const [row] = await db.insert(exportedSlideshows).values(data).returning();
+  return row;
+}
+
+export async function listExportedSlideshowsByUser(userEmail: string) {
+  return await db
+    .select()
+    .from(exportedSlideshows)
+    .where(eq(exportedSlideshows.userEmail, userEmail))
+    .orderBy(desc(exportedSlideshows.createdAt));
+}

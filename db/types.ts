@@ -1,7 +1,14 @@
 // Type definitions generated from Drizzle schema
 // Import these types throughout your app for type safety
 
-import { slideshows, waitlist, posts, ucgTemplates, ucgVideos } from "./schema";
+import {
+  slideshows,
+  waitlist,
+  posts,
+  ucgTemplates,
+  ucgVideos,
+  exportedSlideshows,
+} from "./schema";
 
 // Inferred types from schema
 export type Slideshow = typeof slideshows.$inferSelect;
@@ -19,9 +26,11 @@ export type NewUcgTemplate = typeof ucgTemplates.$inferInsert;
 export type UcgVideo = typeof ucgVideos.$inferSelect;
 export type NewUcgVideo = typeof ucgVideos.$inferInsert;
 
+export type ExportedSlideshow = typeof exportedSlideshows.$inferSelect;
+export type NewExportedSlideshow = typeof exportedSlideshows.$inferInsert;
+
 // Example usage:
 // import { UcgTemplate, UcgVideo } from "@/db/types";
 //
 // const template: UcgTemplate = await db.select().from(ucgTemplates).where(eq(ucgTemplates.id, id));
 // const video: UcgVideo = await db.select().from(ucgVideos).where(eq(ucgVideos.templateId, templateId));
-
