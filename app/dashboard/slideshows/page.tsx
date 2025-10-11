@@ -1542,7 +1542,7 @@ export default function SlideshowsPage() {
                 </div>
               </div>
               {/* Form */}
-              <div className="space-y-3">
+              <div className="space-y-3 flex flex-col min-h-[420px]">
                 <div>
                   <label className="text-xs text-white/60">
                     Select account
@@ -1551,15 +1551,7 @@ export default function SlideshowsPage() {
                     @connected_account
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-white/80">
-                    Publish Immediately
-                  </span>
-                  <button
-                    className="w-10 h-6 rounded-full bg-white/20"
-                    aria-pressed="true"
-                  />
-                </div>
+
                 <div>
                   <label className="text-xs text-white/60">Title</label>
                   <input
@@ -1575,7 +1567,7 @@ export default function SlideshowsPage() {
                     placeholder="Add a description…"
                   />
                 </div>
-                <div className="pt-2 flex items-center justify-end gap-2">
+                <div className="mt-auto pt-2 flex items-center justify-end gap-2">
                   <Button
                     variant="outline"
                     className="border-white/20 text-white hover:bg-white/5"
