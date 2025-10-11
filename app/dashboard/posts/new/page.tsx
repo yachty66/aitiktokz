@@ -51,10 +51,16 @@ export default function NewPostPage() {
     const { url, fields, publicUrl } = await res.json();
     const formData = new FormData();
     Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
-    formData.append("Content-Type", file.type || "video/mp4");
     formData.append("file", file);
-    const upload = await fetch(url, { method: "POST", body: formData });
-    if (!upload.ok) throw new Error("S3 upload failed");
+    const upload = await fetch(url, {
+      method: "POST",
+      body: formData,
+      mode: "cors",
+    });
+    if (!upload.ok) {
+      const errText = await upload.text();
+      throw new Error(`S3 upload failed (${upload.status}): ${errText}`);
+    }
     return publicUrl as string;
   };
 

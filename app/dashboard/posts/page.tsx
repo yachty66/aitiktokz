@@ -52,10 +52,16 @@ export default function PostsPage() {
     const { url, fields, publicUrl } = await res.json();
     const formData = new FormData();
     Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
-    formData.append("Content-Type", file.type || "video/mp4");
     formData.append("file", file);
-    const upload = await fetch(url, { method: "POST", body: formData });
-    if (!upload.ok) throw new Error("S3 upload failed");
+    const upload = await fetch(url, {
+      method: "POST",
+      body: formData,
+      mode: "cors",
+    });
+    if (!upload.ok) {
+      const errText = await upload.text();
+      throw new Error(`S3 upload failed (${upload.status}): ${errText}`);
+    }
     return publicUrl as string;
   };
 
@@ -69,7 +75,7 @@ export default function PostsPage() {
       if (!videoFile) throw new Error("Select a video");
       if (!account) throw new Error("Select an account");
       const videoUrl = await uploadToS3(videoFile);
-      await supabase.from("posts").insert({
+      const { error } = await supabase.from("posts").insert({
         title,
         account,
         start_at: when,
@@ -80,6 +86,7 @@ export default function PostsPage() {
         user_email: user.email,
         status: "queued",
       });
+      if (error) throw error;
       setTitle("");
       setAccount("");
       setWhen("");
