@@ -38,17 +38,17 @@ export async function POST(req: Request) {
       {
         type: "text",
         text:
-          "Analyze these slideshow images and write a single, concise generation prompt that recreates the style, tone, structure, and storyline. Include guidance on hook, slide pacing, typography style, and imagery. Return ONLY the prompt text (no preamble)." +
+          "You will see slideshow images. Analyze them and produce ONE compact generation prompt (<=120 words) to recreate a similar slideshow. Focus ONLY on text/copy and content style — assume typography, size, position, animation, and colors are hardcoded.\n\nReturn EXACTLY three short paragraphs in plain text (no bullets):\n1) Start with: 'I want <N> slides about <inferred topic>.' Then write: 'The first slide should say '<hook text you infer or a faithful improved version>''.\n2) Describe voice/tone, perspective (2nd person with brief 1st‑person insights), and reading level (e.g., 7th–8th grade).\n3) Describe copy style and pacing: whether it's listicle vs narrative, how many slides after the first present numbered rules/principles, and what the final slide should summarize. Do not include layout, fonts, sizes, or positions. Plain text only; quotes only around the exact first‑slide line." +
           (context ? `\n\nExtra context from user: ${context}` : ""),
       },
       ...limitedImages.map((url) => ({
-        type: "input_image",
+        type: "image_url",
         image_url: { url },
       })),
     ];
 
     const completion = await client.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       temperature: 0.7,
       messages: [
         {

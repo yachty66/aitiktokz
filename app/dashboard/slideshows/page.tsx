@@ -561,10 +561,36 @@ export default function SlideshowsPage() {
                             variant="outline"
                             size="sm"
                             className="w-full border-white/20 text-white hover:bg-white/5"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              setPrompt("Hello World");
-                              setShowTemplateModal(false);
+                              try {
+                                const images =
+                                  template.data?.images?.filter(Boolean) ?? [];
+                                if (images.length === 0) return;
+                                // Optional: include any context typed by the user in the textarea
+                                const res = await fetch(
+                                  "/api/slideshows/analyze",
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      images,
+                                      context: prompt,
+                                    }),
+                                  }
+                                );
+                                if (!res.ok)
+                                  throw new Error("Failed to analyze");
+                                const json = (await res.json()) as {
+                                  prompt?: string;
+                                };
+                                if (json.prompt) setPrompt(json.prompt);
+                                setShowTemplateModal(false);
+                              } catch (err) {
+                                console.error("Analyze error", err);
+                              }
                             }}
                           >
                             + Get Prompt
