@@ -5,6 +5,7 @@ import {
   jsonb,
   uuid,
   integer,
+  serial
 } from "drizzle-orm/pg-core";
 
 // Existing waitlist table (matching your Supabase structure)
