@@ -13,8 +13,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard/accounts", label: "Accounts" },
-  { href: "/dashboard/posts", label: "Posts" },
+  { href: "/dashboard/slideshows", label: "Slideshows" },
 ];
 
 export function Sidebar() {
@@ -46,7 +45,7 @@ export function Sidebar() {
           <div className="text-lg font-semibold tracking-tight text-white">
             dashboard
           </div>
-          <p className="text-sm text-white">Manage accounts and schedules</p>
+          <p className="text-sm text-white">Create and manage slideshows</p>
         </div>
 
         <nav className="mt-4 space-y-1">
