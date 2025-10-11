@@ -241,8 +241,10 @@ export async function deleteUcgTemplate(id: number) {
 export async function createUcgVideo(data: {
   templateId: number;
   postId?: number;
+  status?: "DONE" | "PENDING" | "FAILED";
   bucketId?: string;
   bucketUrl?: string;
+  thumbnailUrl?: string;
 }) {
   const [video] = await db
     .insert(ucgVideos)
@@ -288,8 +290,10 @@ export async function updateUcgVideo(
   id: number,
   data: Partial<{
     postId: number;
+    status: "DONE" | "PENDING" | "FAILED";
     bucketId: string;
     bucketUrl: string;
+    thumbnailUrl: string;
   }>
 ) {
   const [video] = await db
