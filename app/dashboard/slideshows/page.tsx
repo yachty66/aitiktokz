@@ -563,7 +563,8 @@ export default function SlideshowsPage() {
                             className="w-full border-white/20 text-white hover:bg-white/5"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // TODO: Implement get prompt functionality
+                              setPrompt("Hello World");
+                              setShowTemplateModal(false);
                             }}
                           >
                             + Get Prompt
