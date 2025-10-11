@@ -83,6 +83,11 @@ export default function SlideshowsPage() {
     slideshow: any | null;
   }>({ open: false, slideshow: null });
   const [modalSlideIdx, setModalSlideIdx] = useState(0);
+  const [accounts, setAccounts] = useState<string[]>([]);
+  const [selectedAccount, setSelectedAccount] =
+    useState<string>("nutricamtracker");
+  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
+  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Helpers to composite text over images and upload to S3 before export
   function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
@@ -464,6 +469,46 @@ export default function SlideshowsPage() {
   useEffect(() => {
     setPage(1);
   }, [exportedSlideshows.length]);
+
+  // Load connected TikTok accounts (for now single account via /api/tiktok/me)
+  useEffect(() => {
+    async function loadAccounts() {
+      if (!shareModal.open) return;
+      try {
+        const res = await fetch("/api/tiktok/me", { cache: "no-store" });
+        if (res.ok) {
+          const j = await res.json();
+          const uname =
+            j?.data?.creator_username ||
+            j?.data?.creator_nickname ||
+            "nutricamtracker";
+          setAccounts([uname]);
+          setSelectedAccount(uname);
+        } else {
+          setAccounts(["nutricamtracker"]);
+          setSelectedAccount("nutricamtracker");
+        }
+      } catch {
+        setAccounts(["nutricamtracker"]);
+        setSelectedAccount("nutricamtracker");
+      }
+    }
+    loadAccounts();
+  }, [shareModal.open]);
+
+  // Close account dropdown on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!accountDropdownRef.current) return;
+      if (!(e.target instanceof Node)) return;
+      if (!accountDropdownRef.current.contains(e.target))
+        setIsAccountsOpen(false);
+    }
+    if (isAccountsOpen) {
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }
+  }, [isAccountsOpen]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1591,8 +1636,42 @@ export default function SlideshowsPage() {
                   <label className="text-xs text-white/60">
                     Select account
                   </label>
-                  <div className="mt-1 px-3 py-2 rounded bg-white/5 border border-white/10 text-sm">
-                    @connected_account
+                  <div className="mt-1 relative" ref={accountDropdownRef}>
+                    <button
+                      className="w-full flex items-center justify-between px-3 py-2 rounded bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+                      onClick={() => setIsAccountsOpen((v) => !v)}
+                    >
+                      <span>@{selectedAccount}</span>
+                      <svg
+                        className="w-4 h-4 text-white/70"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    {isAccountsOpen && (
+                      <div className="absolute z-10 mt-1 w-full rounded-md border border-white/10 bg-black shadow-lg">
+                        {accounts.map((acc) => (
+                          <button
+                            key={acc}
+                            onClick={() => {
+                              setSelectedAccount(acc);
+                              setIsAccountsOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-white/5 ${
+                              acc === selectedAccount ? "bg-white/5" : ""
+                            }`}
+                          >
+                            @{acc}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
