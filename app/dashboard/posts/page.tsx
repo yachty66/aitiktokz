@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type MockPost = {
   id: string;
@@ -15,6 +15,84 @@ type MockPost = {
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<MockPost[]>([]);
+  const [title, setTitle] = useState("");
+  const [account, setAccount] = useState("");
+  const [when, setWhen] = useState("");
+  const [accounts, setAccounts] = useState<
+    { id: string | number; name?: string | null; account?: string | null }[]
+  >([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [description, setDescription] = useState("");
+  const [hashtags, setHashtags] = useState("");
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(async ({ data }) => {
+      const user = data.user;
+      if (!user) return;
+      const { data: rows } = await supabase
+        .from("accounts")
+        .select("id,name,account,user_uid,user_email")
+        .or(`user_uid.eq.${user.id},user_email.eq.${user.email}`);
+      setAccounts((rows as any) ?? []);
+    });
+  }, []);
+
+  const uploadToS3 = async (file: File): Promise<string> => {
+    const res = await fetch("/api/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || "video/mp4",
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to get upload URL");
+    const { url, fields, publicUrl } = await res.json();
+    const formData = new FormData();
+    Object.entries(fields).forEach(([k, v]) => formData.append(k, v as string));
+    formData.append("Content-Type", file.type || "video/mp4");
+    formData.append("file", file);
+    const upload = await fetch(url, { method: "POST", body: formData });
+    if (!upload.ok) throw new Error("S3 upload failed");
+    return publicUrl as string;
+  };
+
+  const handleQuickCreate = async () => {
+    try {
+      setSaving(true);
+      const supabase = createSupabaseBrowserClient();
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (!user) throw new Error("Not signed in");
+      if (!videoFile) throw new Error("Select a video");
+      if (!account) throw new Error("Select an account");
+      const videoUrl = await uploadToS3(videoFile);
+      await supabase.from("posts").insert({
+        title,
+        account,
+        start_at: when,
+        video_url: videoUrl,
+        description,
+        hashtags,
+        user_uid: user.id,
+        user_email: user.email,
+        status: "queued",
+      });
+      setTitle("");
+      setAccount("");
+      setWhen("");
+      setVideoFile(null);
+      setDescription("");
+      setHashtags("");
+      alert("Post queued");
+    } catch (e: any) {
+      alert(e.message || "Failed to create");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -23,20 +101,65 @@ export default function PostsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Posts</h1>
           <p className="text-sm text-white/80">Create and manage your posts.</p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/posts/new">New Post</Link>
-        </Button>
+        <div />
       </header>
 
       <Card className="bg-black border-white/10 text-white">
         <CardHeader>
-          <CardTitle>Create Post</CardTitle>
+          <CardTitle>Quick Create</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-4">
-          <Input placeholder="Title" />
-          <Input placeholder="Account" />
-          <Input placeholder="When (optional)" />
-          <Button>Create</Button>
+          <Input
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <select
+            className="rounded-md bg-transparent border border-white/10 px-3 py-2 text-sm"
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+          >
+            <option value="" className="bg-black">
+              Select account
+            </option>
+            {accounts.map((a) => (
+              <option
+                key={a.id}
+                value={a.account ?? String(a.id)}
+                className="bg-black"
+              >
+                {a.name || a.account || a.id}
+              </option>
+            ))}
+          </select>
+          <Input
+            type="datetime-local"
+            value={when}
+            onChange={(e) => setWhen(e.target.value)}
+          />
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+            className="text-sm"
+          />
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="sm:col-span-4 w-full rounded-md border border-white/10 bg-transparent p-3 text-sm outline-none focus:ring-1 focus:ring-white/30 min-h-24"
+          />
+          <Input
+            placeholder="Hashtags (comma or space separated)"
+            value={hashtags}
+            onChange={(e) => setHashtags(e.target.value)}
+            className="sm:col-span-4"
+          />
+          <div className="sm:col-span-4 flex gap-2 justify-end">
+            <Button onClick={handleQuickCreate} disabled={saving}>
+              {saving ? "Uploading…" : "Save draft"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
