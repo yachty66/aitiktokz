@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 type MockPost = {
   id: string;
@@ -22,12 +23,8 @@ export default function PostsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Posts</h1>
           <p className="text-sm text-white/80">Create and manage your posts.</p>
         </div>
-        <Button
-          onClick={() => {
-            /* later */
-          }}
-        >
-          New Post
+        <Button asChild>
+          <Link href="/dashboard/posts/new">New Post</Link>
         </Button>
       </header>
 

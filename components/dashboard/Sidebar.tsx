@@ -29,7 +29,8 @@ export function Sidebar() {
 
         <nav className="mt-4 space-y-1">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.href}
