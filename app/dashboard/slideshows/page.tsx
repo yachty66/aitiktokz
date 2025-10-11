@@ -22,6 +22,10 @@ export default function SlideshowsPage() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzingTemplateId, setAnalyzingTemplateId] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     if (showTemplateModal) {
@@ -451,6 +455,11 @@ export default function SlideshowsPage() {
                   </svg>
                   Filter
                 </Button>
+                {isAnalyzing && (
+                  <div className="ml-4 text-sm text-white/60">
+                    Analyzing slides… this may take a few seconds
+                  </div>
+                )}
               </div>
             </div>
 
@@ -560,14 +569,16 @@ export default function SlideshowsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full border-white/20 text-white hover:bg-white/5"
+                            disabled={isAnalyzing}
+                            className="w-full border-white/20 text-white hover:bg-white/5 disabled:opacity-60 disabled:cursor-not-allowed"
                             onClick={async (e) => {
                               e.stopPropagation();
                               try {
+                                setIsAnalyzing(true);
+                                setAnalyzingTemplateId(template.id);
                                 const images =
                                   template.data?.images?.filter(Boolean) ?? [];
                                 if (images.length === 0) return;
-                                // Optional: include any context typed by the user in the textarea
                                 const res = await fetch(
                                   "/api/slideshows/analyze",
                                   {
@@ -590,10 +601,38 @@ export default function SlideshowsPage() {
                                 setShowTemplateModal(false);
                               } catch (err) {
                                 console.error("Analyze error", err);
+                              } finally {
+                                setIsAnalyzing(false);
+                                setAnalyzingTemplateId(null);
                               }
                             }}
                           >
-                            + Get Prompt
+                            {isAnalyzing &&
+                            analyzingTemplateId === template.id ? (
+                              <span className="inline-flex items-center gap-2">
+                                <svg
+                                  className="w-4 h-4 animate-spin text-white"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                  ></path>
+                                </svg>
+                                Analyzing…
+                              </span>
+                            ) : (
+                              "+ Get Prompt"
+                            )}
                           </Button>
                         </div>
                       </Card>
