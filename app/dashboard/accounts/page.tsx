@@ -33,7 +33,7 @@ export default function AccountsPage() {
         </Button>
       </header>
 
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-black border-white/10 text-white">
         <CardHeader>
           <CardTitle>Create Account</CardTitle>
         </CardHeader>
@@ -44,19 +44,19 @@ export default function AccountsPage() {
         </CardContent>
       </Card>
 
-      <Card className="bg-white/5 border-white/10">
+      <Card className="bg-black border-white/10 text-white">
         <CardHeader>
           <CardTitle>Connected Accounts</CardTitle>
         </CardHeader>
         <CardContent>
           {accounts.length === 0 ? (
-            <div className="h-40 rounded-md border border-dashed border-white/15 flex items-center justify-center text-sm text-muted-foreground">
+            <div className="h-40 rounded-md border border-dashed border-white/15 flex items-center justify-center text-sm text-white/70">
               No accounts yet. Add one above.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-muted-foreground">
+                <thead className="text-left text-white/80">
                   <tr className="border-b border-white/10">
                     <th className="py-2 pr-4">Platform</th>
                     <th className="py-2 pr-4">Handle</th>
