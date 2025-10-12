@@ -65,6 +65,12 @@ export default function SlideshowsPage() {
   const [appliedCollection, setAppliedCollection] = useState<string | null>(
     null
   );
+  // When opening modal from a slide, remember the slide index so we can replace its image
+  const [imagePickerForSlide, setImagePickerForSlide] = useState<number | null>(
+    null
+  );
+  const [modalImages, setModalImages] = useState<string[]>([]);
+  const [isModalImagesLoading, setIsModalImagesLoading] = useState(false);
 
   // Placeholder collections for UI (replace with real data source later)
   const exampleCollections = [
@@ -85,6 +91,34 @@ export default function SlideshowsPage() {
   const filteredCollections = exampleCollections.filter((name) =>
     name.toLowerCase().includes(imageSearch.toLowerCase())
   );
+
+  function prefixForCollection(name: string): string {
+    // Map friendly names to S3 prefixes; extend as you add collections
+    const map: Record<string, string> = {
+      "Pinterest – Surrealism": "pinterest-surrealism/",
+      "Pinterest – School": "pinterest-school/",
+    };
+    return map[name] || "pinterest-surrealism/";
+  }
+
+  async function loadCollectionImages(name: string) {
+    setIsModalImagesLoading(true);
+    setModalImages([]);
+    try {
+      const prefix = prefixForCollection(name);
+      const res = await fetch(
+        `/api/images/list?limit=27&prefix=${encodeURIComponent(prefix)}`
+      );
+      if (!res.ok) throw new Error("Failed to list images");
+      const data = (await res.json()) as { images?: string[] };
+      setModalImages(data.images || []);
+    } catch (err) {
+      console.error("loadCollectionImages error", err);
+      setModalImages([]);
+    } finally {
+      setIsModalImagesLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (showTemplateModal) {
@@ -285,7 +319,15 @@ export default function SlideshowsPage() {
 
                     {idx === currentSlide && (
                       <div className="mt-3 flex items-center gap-3">
-                        <button className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow border border-white/10">
+                        <button
+                          className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow border border-white/10"
+                          aria-label="Change image"
+                          title="Change image"
+                          onClick={() => {
+                            setImagePickerForSlide(idx);
+                            setIsImagesModalOpen(true);
+                          }}
+                        >
                           <svg
                             className="w-4 h-4"
                             fill="none"
@@ -918,52 +960,120 @@ export default function SlideshowsPage() {
                 className="w-full bg-white/5 border border-white/10 rounded-md px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
               />
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredCollections.map((name, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedCollection(name)}
-                    className={`text-left bg-white/5 border rounded-md overflow-hidden hover:bg-white/10 transition-colors ${
-                      selectedCollection === name
-                        ? "border-white"
-                        : "border-white/10"
-                    }`}
-                  >
-                    <div className="grid grid-cols-8 gap-[2px] p-2">
-                      {Array.from({ length: 8 }).map((_, i) => (
-                        <div
+            <div className="p-6 overflow-y-auto max-h:[calc(90vh-200px)] max-h-[calc(90vh-200px)]">
+              {modalImages.length > 0 || isModalImagesLoading ? (
+                <>
+                  {selectedCollection && (
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-white/70 text-sm">
+                        {selectedCollection} · Showing{" "}
+                        {Math.min(27, modalImages.length)} images
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/20 text-white hover:bg-white/5"
+                        onClick={() => {
+                          setModalImages([]);
+                          setSelectedCollection(null);
+                        }}
+                      >
+                        Back to Collections
+                      </Button>
+                    </div>
+                  )}
+                  {isModalImagesLoading ? (
+                    <div className="text-white/60 py-20 text-center">
+                      Loading images…
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-6 xl:grid-cols-9 gap-2">
+                      {modalImages.map((img, i) => (
+                        <button
                           key={i}
-                          className="aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded"
-                        />
+                          onClick={() => {
+                            if (imagePickerForSlide != null) {
+                              setPreviewImages((prev) => {
+                                const next = [...prev];
+                                next[imagePickerForSlide] = img;
+                                return next;
+                              });
+                              setIsImagesModalOpen(false);
+                              setImagePickerForSlide(null);
+                              setModalImages([]);
+                              setSelectedCollection(null);
+                            }
+                          }}
+                          className="aspect-square rounded overflow-hidden bg-white/5 border border-white/10 hover:border-white/40 hover:bg-white/10"
+                          title="Use this image"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img}
+                            alt="choice"
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
                       ))}
                     </div>
-                    <div className="px-3 py-2 text-sm text-white/80 truncate">
-                      {name}
-                    </div>
-                  </button>
-                ))}
+                  )}
+                </>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredCollections.map((name, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedCollection(name);
+                        if (imagePickerForSlide != null) {
+                          // If opened from a slide, immediately load first 27 images to pick from
+                          loadCollectionImages(name);
+                        }
+                      }}
+                      className={`text-left bg-white/5 border rounded-md overflow-hidden hover:bg-white/10 transition-colors ${
+                        selectedCollection === name
+                          ? "border-white"
+                          : "border-white/10"
+                      }`}
+                    >
+                      <div className="grid grid-cols-8 gap-[2px] p-2">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded"
+                          />
+                        ))}
+                      </div>
+                      <div className="px-3 py-2 text-sm text-white/80 truncate">
+                        {name}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Footer buttons only for selecting collection to apply globally */}
+            {imagePickerForSlide == null && (
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+                <Button
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/5"
+                  onClick={() => setIsImagesModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-white text-black hover:bg-gray-200"
+                  disabled={!selectedCollection}
+                  onClick={() => {
+                    setAppliedCollection(selectedCollection);
+                    setIsImagesModalOpen(false);
+                  }}
+                >
+                  Save
+                </Button>
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
-              <Button
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/5"
-                onClick={() => setIsImagesModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="bg-white text-black hover:bg-gray-200"
-                disabled={!selectedCollection}
-                onClick={() => {
-                  setAppliedCollection(selectedCollection);
-                  setIsImagesModalOpen(false);
-                }}
-              >
-                Save
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       )}
