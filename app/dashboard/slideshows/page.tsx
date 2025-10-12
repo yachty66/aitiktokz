@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Type } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { useHeraSlideshow } from "@/lib/useHeraSlideshow";
 
 interface TemplateData {
   images: string[];
@@ -72,6 +73,7 @@ export default function SlideshowsPage() {
   } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedSlideshows, setExportedSlideshows] = useState<any[]>([]);
+  const { isHeraExporting, exportAsHera } = useHeraSlideshow();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 12; // cards per page
@@ -1337,6 +1339,37 @@ export default function SlideshowsPage() {
             disabled={isExporting || previewImages.length === 0}
           >
             {isExporting ? "Exporting…" : "Export"}
+          </Button>
+          <Button
+            className="w-full bg-[#FA4E3E] hover:bg-[#e04638] text-white font-semibold py-4 text-lg mt-3"
+            onClick={async () => {
+              try {
+                if (previewImages.length === 0) return;
+                const total = (durations || []).reduce(
+                  (a, b) => a + (b || 0),
+                  0
+                );
+                await exportAsHera({
+                  title: `Slideshow ${new Date().toLocaleDateString()}`,
+                  num_slides: previewImages.length,
+                  total_duration_sec: total,
+                  thumbnail_url: previewImages[0] || null,
+                  data: {
+                    images: previewImages,
+                    texts: previewTexts,
+                    textBoxes,
+                    durations,
+                    aspect,
+                    prompt,
+                  },
+                });
+              } catch (err) {
+                console.error("Hera export failed:", err);
+              }
+            }}
+            disabled={isHeraExporting || previewImages.length === 0}
+          >
+            {isHeraExporting ? "Exporting…" : "Export as Hera"}
           </Button>
         </Card>
       </div>
