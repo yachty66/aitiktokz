@@ -79,6 +79,124 @@ export default function SlideshowsPage() {
     {}
   );
 
+  // Helpers to composite text over images and upload to S3 before export
+  function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
+    if (a === "1:1") return { width: 1080, height: 1080 };
+    if (a === "4:5") return { width: 1080, height: 1350 };
+    if (a === "3:4") return { width: 1080, height: 1440 };
+    return { width: 1080, height: 1920 };
+  }
+
+  function loadImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      // Route through same-origin proxy to avoid CORS tainting
+      const proxied = `/api/image-proxy?url=${encodeURIComponent(src)}`;
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = proxied;
+    });
+  }
+
+  function drawImageCover(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    cw: number,
+    ch: number
+  ) {
+    const scale = Math.max(cw / img.width, ch / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    const x = (cw - w) / 2;
+    const y = (ch - h) / 2;
+    ctx.drawImage(img, x, y, w, h);
+  }
+
+  function wrapText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number
+  ): string[] {
+    const lines: string[] = [];
+    const paragraphs = (text || "").split(/\n+/);
+    for (const p of paragraphs) {
+      const words = p.split(/\s+/);
+      let current = "";
+      for (const w of words) {
+        const next = current ? current + " " + w : w;
+        if (ctx.measureText(next).width <= maxWidth) current = next;
+        else {
+          if (current) lines.push(current);
+          current = w;
+        }
+      }
+      if (current) lines.push(current);
+    }
+    return lines.length ? lines : [""];
+  }
+
+  async function compositeAndUploadSlide(
+    imageUrl: string,
+    text: string,
+    box: { x: number; y: number; widthPct: number },
+    a: "1:1" | "4:5" | "3:4" | "9:16",
+    index: number
+  ): Promise<string> {
+    const { width, height } = getCanvasSizeForAspect(a);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D unsupported");
+
+    const img = await loadImage(imageUrl);
+    drawImageCover(ctx, img, width, height);
+
+    const boxWidth =
+      (Math.max(10, Math.min(95, box?.widthPct ?? 85)) / 100) * width;
+    const cx = (Math.min(100, Math.max(0, box?.x ?? 50)) / 100) * width;
+    const cy = (Math.min(100, Math.max(0, box?.y ?? 50)) / 100) * height;
+
+    let fontSize = Math.round(width * 0.06);
+    fontSize = Math.max(28, Math.min(96, fontSize));
+    ctx.font = `${fontSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    const lines = wrapText(ctx, text || "", boxWidth);
+    const lineHeight = Math.round(fontSize * 1.2);
+    const totalH = lineHeight * lines.length;
+    let y = cy - totalH / 2 + lineHeight / 2;
+    ctx.strokeStyle = "#000";
+    ctx.fillStyle = "#fff";
+    ctx.lineWidth = Math.round(fontSize * 0.18);
+    for (const line of lines) {
+      ctx.strokeText(line, cx, y, boxWidth);
+      ctx.fillText(line, cx, y, boxWidth);
+      y += lineHeight;
+    }
+
+    const blob: Blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+    );
+
+    const fileName = `slide-${Date.now()}-${index}.jpg`;
+    // Use server-side upload to avoid bucket CORS requirements
+    const fd = new FormData();
+    fd.append("file", blob, fileName);
+    const up = await fetch("/api/upload", { method: "POST", body: fd });
+    let json: any = null;
+    try {
+      json = await up.json();
+    } catch {}
+    if (!up.ok || !json?.publicUrl) {
+      console.error("Upload response", up.status, json);
+      throw new Error("Upload failed");
+    }
+    return json.publicUrl as string;
+  }
+
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
     const [moved] = next.splice(from, 1);
@@ -1126,15 +1244,28 @@ export default function SlideshowsPage() {
                   (a, b) => a + (b || 0),
                   0
                 );
+                // Compose text over images and upload
+                const composedUrls: string[] = [];
+                for (let i = 0; i < previewImages.length; i++) {
+                  const url = await compositeAndUploadSlide(
+                    previewImages[i],
+                    previewTexts[i] || "",
+                    textBoxes[i] || { x: 50, y: 50, widthPct: 85 },
+                    aspect,
+                    i
+                  );
+                  composedUrls.push(url);
+                }
+
                 const payload = {
                   title: `Slideshow ${new Date().toLocaleDateString()}`,
                   prompt,
                   aspect,
                   num_slides: previewImages.length,
                   total_duration_sec: total,
-                  thumbnail_url: previewImages[0] || null,
+                  thumbnail_url: composedUrls[0] || previewImages[0] || null,
                   data: {
-                    images: previewImages,
+                    images: composedUrls,
                     texts: previewTexts,
                     textBoxes,
                     durations,
