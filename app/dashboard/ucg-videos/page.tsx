@@ -289,11 +289,14 @@ export default function UcgVideosPage() {
       <div className="max-w-7xl mx-auto space-y-12">
         {/* Video Dialog */}
         <Dialog open={isVideoDialogOpen} onOpenChange={setIsVideoDialogOpen}>
-          <DialogContent className="sm:max-w-[520px] md:max-w-[560px] lg:max-w-[640px] bg-black border-zinc-800 rounded-xl p-8">
-            <div className="w-full">
+          <DialogContent className="sm:max-w-[560px] md:max-w-[580px] lg:max-w-[600px] bg-black border-zinc-800 rounded-xl p-6">
+            <div className="w-full flex items-center justify-center">
               {selectedVideo?.bucketUrl ? (
-                <div className="aspect-[9/16] w-full overflow-hidden rounded-md">
-                  <video src={selectedVideo.bucketUrl} controls className="w-full h-full object-cover" />
+                <div
+                  className="rounded-md bg-black overflow-hidden"
+                  style={{ aspectRatio: "9 / 16", width: "min(560px, 90vw)" }}
+                >
+                  <video src={selectedVideo.bucketUrl} controls className="w-full h-full object-contain" />
                 </div>
               ) : (
                 <div className="h-64 flex items-center justify-center text-zinc-500">
@@ -491,8 +494,13 @@ export default function UcgVideosPage() {
                 <h3 className="text-white font-semibold mb-3">Output</h3>
                 {/* When a video is ready, show the video */}
                 {previewVideo && previewVideo.status === "DONE" && previewVideo.bucketUrl ? (
-                  <div className="aspect-[9/16] w-full bg-black rounded-lg overflow-hidden border border-zinc-800">
-                    <video src={previewVideo.bucketUrl} controls className="w-full h-full object-cover" />
+                  <div className="w-full flex items-center justify-center">
+                    <div
+                      className="bg-black rounded-lg overflow-hidden border border-zinc-800 max-h-[70vh]"
+                      style={{ aspectRatio: "9 / 16", width: "min(480px, 100%)" }}
+                    >
+                      <video src={previewVideo.bucketUrl} controls className="w-full h-full object-contain" />
+                    </div>
                   </div>
                 ) : (
                   <>

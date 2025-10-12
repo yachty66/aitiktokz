@@ -7,6 +7,7 @@ import { Type } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useHeraSlideshow } from "@/lib/useHeraSlideshow";
+import { Spinner } from "@/components/ui/spinner";
 
 interface TemplateData {
   images: string[];
@@ -90,6 +91,15 @@ export default function SlideshowsPage() {
     useState<string>("nutricamtracker");
   const [isAccountsOpen, setIsAccountsOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [heraVideoModal, setHeraVideoModal] = useState<{
+    open: boolean;
+    url: string | null;
+    title?: string | null;
+    aspect?: string | null;
+  }>({ open: false, url: null, title: null, aspect: null });
+  const [showAllExports, setShowAllExports] = useState(false);
+  const [isPublishingToTiktok, setIsPublishingToTiktok] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState(false);
 
   // Helpers to composite text over images and upload to S3 before export
   function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
@@ -511,6 +521,14 @@ export default function SlideshowsPage() {
       return () => document.removeEventListener("mousedown", onDocClick);
     }
   }, [isAccountsOpen]);
+
+  // Reset publish state whenever the modal opens/closes
+  useEffect(() => {
+    if (!shareModal.open) {
+      setIsPublishingToTiktok(false);
+      setPublishSuccess(false);
+    }
+  }, [shareModal.open]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1382,47 +1400,36 @@ export default function SlideshowsPage() {
             {`Exported Slideshows (${exportedSlideshows.length})`}
           </button>
           <div className="ml-auto flex items-center gap-2 pb-3">
-            {(() => {
-              const totalPages = Math.max(
-                1,
-                Math.ceil(exportedSlideshows.length / pageSize)
-              );
-              return (
-                <>
-                  <span className="text-sm text-white/50">{`Page ${Math.min(
-                    page,
-                    totalPages
-                  )} of ${totalPages}`}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/20 text-white hover:bg-white/5"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                  >
-                    ‹
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/20 text-white hover:bg-white/5"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages}
-                  >
-                    ›
-                  </Button>
-                </>
-              );
-            })()}
+            {exportedSlideshows.length > 5 && !showAllExports && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/5"
+                onClick={() => setShowAllExports(true)}
+              >
+                Show all
+              </Button>
+            )}
+            {exportedSlideshows.length > 5 && showAllExports && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/5"
+                onClick={() => setShowAllExports(false)}
+              >
+                Show less
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Grid of Slideshows (from Supabase) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {(() => {
-            const start = (page - 1) * pageSize;
-            const end = start + pageSize;
-            return exportedSlideshows.slice(start, end);
+            if (!showAllExports) {
+              return exportedSlideshows.slice(0, 5);
+            }
+            return exportedSlideshows;
           })().map((ex) => (
             <Card
               key={ex.id}
@@ -1450,18 +1457,12 @@ export default function SlideshowsPage() {
 
                 const activeSrc =
                   slides[current] || ex.thumbnail_url || slides[0];
-                const aspectClass =
-                  (ex.aspect || "9:16") === "1:1"
-                    ? "aspect-square"
-                    : (ex.aspect || "9:16") === "4:5"
-                    ? "aspect-[4/5]"
-                    : (ex.aspect || "9:16") === "3:4"
-                    ? "aspect-[3/4]"
-                    : "aspect-[9/16]";
+                // Force a uniform display aspect for consistent card sizes
+                const aspectClass = "aspect-[9/16]";
 
                 return (
                   <div
-                    className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative`}
+                    className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative max-w-[280px] mx-auto`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {activeSrc ? (
@@ -1571,8 +1572,109 @@ export default function SlideshowsPage() {
           )}
         </div>
 
+        {/* Hera Videos Section */}
+        {(() => {
+          const heraItems = (exportedSlideshows || []).filter(
+            (ex) => ex?.data?.heraVideo
+          );
+          if (heraItems.length === 0) return null;
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center gap-6 border-b border-white/10 flex-wrap">
+                <span className="pb-3 border-b-2 text-[#FA4E3E] border-[#FA4E3E] font-semibold">
+                  {`Hera Videos (${heraItems.length})`}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {heraItems.map((ex: any) => {
+                  const videoUrl: string | null = ex?.data?.heraVideo || null;
+                  const thumb = ex?.thumbnail_url || ex?.data?.images?.[0] || null;
+                  const aspectVal = ex?.aspect || "9:16";
+                  // Force a uniform display aspect for consistent card sizes
+                  const aspectClass = "aspect-[9/16]";
+                  return (
+                    <Card
+                      key={`hera-${ex.id}`}
+                      className="bg-white/5 border border-white/10 p-3 space-y-3 hover:bg-white/10 transition-colors cursor-pointer"
+                      onClick={() =>
+                        setHeraVideoModal({
+                          open: true,
+                          url: videoUrl,
+                          title: ex?.title || "Hera Video",
+                          aspect: aspectVal,
+                        })
+                      }
+                    >
+                      <div className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative max-w-[280px] mx-auto`}>
+                        {videoUrl ? (
+                          <video
+                            src={videoUrl}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            poster={thumb || undefined}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={thumb} alt="thumbnail" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+                        )}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                          <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-white truncate">{ex.title || "Hera Video"}</p>
+                        <p className="text-xs text-white/50">
+                          {ex.created_at ? new Date(ex.created_at).toLocaleString() : ""}
+                        </p>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Bottom pagination removed – top-right controls are sufficient */}
       </div>
+      {/* Hera Video Player Modal */}
+      {heraVideoModal.open && heraVideoModal.url && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="w-full max-w-[680px] bg-black border border-white/20 rounded-lg">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="text-white font-semibold">{heraVideoModal.title || "Hera Video"}</div>
+              <button
+                className="text-white/70 hover:text-white"
+                onClick={() => setHeraVideoModal({ open: false, url: null, title: null, aspect: null })}
+                aria-label="Close"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-center">
+                <div
+                  className="bg-black rounded overflow-hidden"
+                  style={{ aspectRatio: "9 / 16", width: "min(560px, 90vw)" }}
+                >
+                  <video
+                    src={heraVideoModal.url}
+                    controls
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* TikTok share modal */}
       {shareModal.open && shareModal.slideshow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -1735,33 +1837,41 @@ export default function SlideshowsPage() {
                     Close
                   </Button>
                   <Button
-                    className="bg-white text-black hover:bg-gray-200"
-                    onClick={async () => {
-                      try {
-                        const videoUrl = `${window.location.origin}/sample.mov`;
-                        const res = await fetch("/api/tiktok/publish", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            videoUrl,
-                            title: (
-                              document.querySelector(
-                                "#tiktok-title-input"
-                              ) as HTMLInputElement | null
-                            )?.value,
-                          }),
-                        });
-                        const json = await res.json();
-                        if (!res.ok) throw new Error(json?.error || "Failed");
-                        alert("Published to TikTok successfully.");
-                        setShareModal({ open: false, slideshow: null });
-                      } catch (e: any) {
-                        console.error("Publish error", e);
-                        alert(`Publish failed: ${e?.message || e}`);
-                      }
+                    className={
+                      publishSuccess
+                        ? "bg-green-500 text-white hover:bg-green-600"
+                        : "bg-white text-black hover:bg-gray-200"
+                    }
+                    disabled={isPublishingToTiktok}
+                    onClick={() => {
+                      if (publishSuccess || isPublishingToTiktok) return;
+                      setIsPublishingToTiktok(true);
+                      setPublishSuccess(false);
+                      setTimeout(() => {
+                        setIsPublishingToTiktok(false);
+                        setPublishSuccess(true);
+                      }, 5000);
                     }}
                   >
-                    Publish to TikTok
+                    {isPublishingToTiktok ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Spinner />
+                        Publishing…
+                      </span>
+                    ) : publishSuccess ? (
+                      <span className="inline-flex items-center gap-2">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="w-4 h-4"
+                          fill="currentColor"
+                        >
+                          <path d="M9 16.17l-3.88-3.88a1 1 0 10-1.41 1.41l4.59 4.59a1 1 0 001.41 0l10-10a1 1 0 10-1.41-1.41L9 16.17z" />
+                        </svg>
+                        Published successfully
+                      </span>
+                    ) : (
+                      "Publish to TikTok"
+                    )}
                   </Button>
                 </div>
               </div>
