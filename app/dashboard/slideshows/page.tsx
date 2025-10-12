@@ -30,6 +30,14 @@ export default function SlideshowsPage() {
   const [previewTexts, setPreviewTexts] = useState<string[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const stripRef = useRef<HTMLDivElement | null>(null);
+  const dragFromRef = useRef<number | null>(null);
+
+  function moveItem<T>(list: T[], from: number, to: number): T[] {
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  }
 
   // Auto-scroll the preview strip to keep the focused slide in view
   useEffect(() => {
@@ -366,21 +374,76 @@ export default function SlideshowsPage() {
 
           {/* Controls below arrows removed; controls render under active slide above */}
 
-          {/* Thumbnail Strip */}
+          {/* Thumbnail Strip (draggable to reorder) */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex-shrink-0 w-12 h-12 bg-white/5 border border-white/10 rounded"
-              />
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-shrink-0 w-12 h-12 border-white/20 text-white hover:bg-white/5"
-            >
-              +
-            </Button>
+            {previewImages.length === 0 ? (
+              <>
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-shrink-0 w-12 h-12 bg-white/5 border border-white/10 rounded"
+                  />
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 w-12 h-12 border-white/20 text-white hover:bg-white/5"
+                >
+                  +
+                </Button>
+              </>
+            ) : (
+              <>
+                {previewImages.map((src, idx) => (
+                  <div
+                    key={idx}
+                    role="button"
+                    tabIndex={0}
+                    className={`relative flex-shrink-0 w-12 h-12 rounded overflow-hidden border ${
+                      idx === currentSlide
+                        ? "border-white ring-1 ring-white"
+                        : "border-white/10"
+                    } bg-white/5 cursor-move`}
+                    draggable
+                    onClick={() => setCurrentSlide(idx)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        setCurrentSlide(idx);
+                    }}
+                    onDragStart={() => {
+                      dragFromRef.current = idx;
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const from = dragFromRef.current;
+                      dragFromRef.current = null;
+                      if (from == null || from === idx) return;
+                      setPreviewImages((prev) => moveItem(prev, from, idx));
+                      setPreviewTexts((prev) => moveItem(prev, from, idx));
+                      setCurrentSlide(idx);
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt="thumb"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 w-12 h-12 border-white/20 text-white hover:bg-white/5"
+                >
+                  +
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Export Button */}
