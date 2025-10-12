@@ -1463,8 +1463,17 @@ export default function SlideshowsPage() {
                   <div
                     className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {activeSrc ? (
+                    {/* If video_url is present, render a playable video */}
+                    {ex.video_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <video
+                        src={ex.video_url}
+                        controls
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : activeSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={activeSrc}
                         alt={ex.title || "thumbnail"}
