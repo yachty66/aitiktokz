@@ -78,6 +78,10 @@ export default function SlideshowsPage() {
   const [cardSlideIndex, setCardSlideIndex] = useState<Record<string, number>>(
     {}
   );
+  const [shareModal, setShareModal] = useState<{
+    open: boolean;
+    slideshow: any | null;
+  }>({ open: false, slideshow: null });
 
   // Helpers to composite text over images and upload to S3 before export
   function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
@@ -1440,6 +1444,26 @@ export default function SlideshowsPage() {
                     ? new Date(ex.created_at).toLocaleString()
                     : ""}
                 </p>
+                <div className="pt-1">
+                  <button
+                    className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShareModal({ open: true, slideshow: ex });
+                    }}
+                    title="Publish to TikTok"
+                  >
+                    {/* TikTok icon */}
+                    <svg
+                      viewBox="0 0 48 48"
+                      className="w-4 h-4"
+                      fill="currentColor"
+                    >
+                      <path d="M31.5 9.5c2.2 2.6 5 4.2 8.5 4.6v6.3c-3.5-.1-6.6-1.1-9.3-3v10.6c0 6.6-5.4 11.6-12 10.9-5.6-.6-9.7-5.7-9.1-11.3.6-5.6 5.7-9.7 11.3-9.1v6.4c-1.9-.5-3.8.8-4.1 2.7-.4 2.1 1.4 4 3.5 4 2 .1 3.7-1.5 3.7-3.5V6h7.5v3.5z" />
+                    </svg>
+                    <span>Post to TikTok</span>
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
@@ -1469,6 +1493,107 @@ export default function SlideshowsPage() {
 
         {/* Bottom pagination removed – top-right controls are sufficient */}
       </div>
+      {/* TikTok share modal */}
+      {shareModal.open && shareModal.slideshow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-2xl bg-black border border-white/20 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <svg
+                  viewBox="0 0 48 48"
+                  className="w-5 h-5"
+                  fill="currentColor"
+                >
+                  <path d="M31.5 9.5c2.2 2.6 5 4.2 8.5 4.6v6.3c-3.5-.1-6.6-1.1-9.3-3v10.6c0 6.6-5.4 11.6-12 10.9-5.6-.6-9.7-5.7-9.1-11.3.6-5.6 5.7-9.7 11.3-9.1v6.4c-1.9-.5-3.8.8-4.1 2.7-.4 2.1 1.4 4 3.5 4 2 .1 3.7-1.5 3.7-3.5V6h7.5v3.5z" />
+                </svg>
+                Publish to TikTok
+              </div>
+              <button
+                className="text-white/70 hover:text-white"
+                onClick={() => setShareModal({ open: false, slideshow: null })}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-[260px,1fr] gap-4">
+              {/* Preview carousel */}
+              <div className="bg-white/5 rounded-md p-3">
+                <div className="aspect-[9/16] bg-black/30 rounded overflow-hidden flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      shareModal.slideshow.thumbnail_url ||
+                      shareModal.slideshow.data?.images?.[0]
+                    }
+                    alt="preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex items-center justify-center gap-1 mt-2">
+                  {Array.isArray(shareModal.slideshow?.data?.images) &&
+                    shareModal.slideshow.data.images.map(
+                      (_: any, i: number) => (
+                        <span
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full bg-white/50"
+                        />
+                      )
+                    )}
+                </div>
+              </div>
+              {/* Form */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-white/60">
+                    Select account
+                  </label>
+                  <div className="mt-1 px-3 py-2 rounded bg-white/5 border border-white/10 text-sm">
+                    @connected_account
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/80">
+                    Publish Immediately
+                  </span>
+                  <button
+                    className="w-10 h-6 rounded-full bg-white/20"
+                    aria-pressed="true"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60">Title</label>
+                  <input
+                    className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/10 text-sm"
+                    placeholder="Add a title…"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60">Description</label>
+                  <textarea
+                    className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/10 text-sm"
+                    rows={3}
+                    placeholder="Add a description…"
+                  />
+                </div>
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() =>
+                      setShareModal({ open: false, slideshow: null })
+                    }
+                  >
+                    Close
+                  </Button>
+                  <Button className="bg-white text-black hover:bg-gray-200">
+                    Publish to TikTok
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Template Library Modal */}
       {showTemplateModal && (
