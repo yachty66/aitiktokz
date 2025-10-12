@@ -4,11 +4,11 @@ import { createUcgVideo } from "@/db/queries";
 
 export async function POST(req: NextRequest) {
   try {
-    const { templateId } = await req.json();
+    const { templateId, model } = await req.json();
 
-    if (!templateId) {
+    if (!templateId || !model) {
       return NextResponse.json(
-        { error: "templateId is required" },
+        { error: "templateId and model are required" },
         { status: 400 }
       );
     }
@@ -21,13 +21,15 @@ export async function POST(req: NextRequest) {
 
     // Step 2: Call n8n to generate the video (async, don't wait)
     // n8n will update the video record when done
-    const n8nUrl = "https://DUMMY-N8N-ENDPOINT.com/generate-video"; // TODO: Replace with real n8n URL
+    const n8nUrl = "https://davidkorn.app.n8n.cloud/webhook/08cbbe94-dc37-49b9-ba30-38d406447cf4";
     
     fetch(n8nUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         video_id: video.id,
+        template_id: templateId,
+        model: model,
       }),
     }).catch((err) => {
       console.error("n8n call failed (non-blocking):", err);

@@ -68,26 +68,32 @@ export async function POST(req: NextRequest) {
     if (!template || !template.id) {
       throw new Error("Failed to create template in database");
     }
-
-    // Step 3: Call n8n with template ID and type
-    const n8nFormData = new FormData();
-    n8nFormData.append("Product", file);
-    n8nFormData.append("Product Name", title);
-    n8nFormData.append("template_id", template.id.toString());
-    n8nFormData.append("type", type);
-
-    console.log("Sending to n8n:", {
+ 
+    // Step 3: Call n8n webhook with JSON payload
+    console.log("Sending to n8n webhook:", {
       templateId: template.id,
       title,
       type,
       fileName: file.name,
+      publicUrl,
     });
 
     const n8nResponse = await fetch(
-      "https://davidkorn.app.n8n.cloud/form/7080d274-4a36-426d-b4e0-6b1160efa587",
+      "https://davidkorn.app.n8n.cloud/webhook/1e87a23b-c249-4dfe-bf37-18d758c7d715",
       {
         method: "POST",
-        body: n8nFormData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product: {
+            filename: file.name,
+            mimetype: file.type,
+            url: publicUrl,
+          },
+          productName: title,
+          template_id: template.id,
+          type,
+          formMode: "production",
+        }),
       }
     );
 
@@ -99,10 +105,27 @@ export async function POST(req: NextRequest) {
       throw new Error(`n8n failed: ${errorText}`);
     }
 
-    // Return as array for consistency
+    // Expect n8n to finish and update the DB; fetch the latest template
+    // so we can return the completed prompt immediately.
+    // If n8n also returns the prompt directly, prefer that; otherwise read from DB.
+    let finalTemplate = template;
+    try {
+      const n8nJson = await n8nResponse.json().catch(() => null);
+      if (n8nJson && n8nJson.data && n8nJson.data.template) {
+        finalTemplate = n8nJson.data.template;
+      } else {
+        // Fallback: query DB by id
+        const { getUcgTemplateById } = await import("@/db/queries");
+        const fresh = await getUcgTemplateById(template.id);
+        if (fresh) finalTemplate = fresh as any;
+      }
+    } catch (e) {
+      console.warn("Failed to parse n8n JSON or fetch final template, returning created template", e);
+    }
+
     return NextResponse.json({
       success: true,
-      data: [template],
+      data: [finalTemplate],
     });
   } catch (error: any) {
     console.error("Error generating templates:", error);
