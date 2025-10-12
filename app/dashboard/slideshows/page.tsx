@@ -1678,6 +1678,7 @@ export default function SlideshowsPage() {
                 <div>
                   <label className="text-xs text-white/60">Title</label>
                   <input
+                    id="tiktok-title-input"
                     className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/10 text-sm"
                     placeholder="Add a title…"
                   />
@@ -1700,7 +1701,33 @@ export default function SlideshowsPage() {
                   >
                     Close
                   </Button>
-                  <Button className="bg-white text-black hover:bg-gray-200">
+                  <Button
+                    className="bg-white text-black hover:bg-gray-200"
+                    onClick={async () => {
+                      try {
+                        const videoUrl = `${window.location.origin}/sample.mov`;
+                        const res = await fetch("/api/tiktok/publish", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            videoUrl,
+                            title: (
+                              document.querySelector(
+                                "#tiktok-title-input"
+                              ) as HTMLInputElement | null
+                            )?.value,
+                          }),
+                        });
+                        const json = await res.json();
+                        if (!res.ok) throw new Error(json?.error || "Failed");
+                        alert("Published to TikTok successfully.");
+                        setShareModal({ open: false, slideshow: null });
+                      } catch (e: any) {
+                        console.error("Publish error", e);
+                        alert(`Publish failed: ${e?.message || e}`);
+                      }
+                    }}
+                  >
                     Publish to TikTok
                   </Button>
                 </div>
