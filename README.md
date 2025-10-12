@@ -22,6 +22,9 @@ i need around 6 hours for the content creation so when
 
 ## todo
 
+- run the video upload via .sh once
+- add the script into my codebase for execution
+- make the 
 
 ## notes
 
