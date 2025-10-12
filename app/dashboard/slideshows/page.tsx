@@ -395,7 +395,7 @@ export default function SlideshowsPage() {
             ) : (
               <div
                 ref={stripRef}
-                className="w-full h-full overflow-x-auto flex items-start gap-8 px-6 snap-x snap-mandatory"
+                className="w-full h-full overflow-x-auto flex items-center gap-8 px-6 snap-x snap-mandatory"
               >
                 {previewImages.map((src, idx) => (
                   <div
