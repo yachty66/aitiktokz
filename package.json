@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "hera:export": "node scripts/run-hera-export.js",
+    "hera:dump-html": "node scripts/dump-hera-html.js",
+    "hera:scrape": "tsx lib/hera_scraper/scraper.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -17,6 +20,8 @@
     "@aws-sdk/client-s3": "^3.893.0",
     "@aws-sdk/s3-presigned-post": "^3.893.0",
     "@aws-sdk/s3-request-presigner": "^3.907.0",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
     "@shadcn/ui": "^0.0.4",
     "@supabase/supabase-js": "^2.57.2",
@@ -25,6 +30,7 @@
     "lucide-react": "^0.542.0",
     "next": "15.1.0",
     "openai": "^4.104.0",
+    "playwright": "^1.56.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.3.1",
@@ -43,6 +49,8 @@
     "postcss": "^8",
     "postgres": "^3.4.7",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

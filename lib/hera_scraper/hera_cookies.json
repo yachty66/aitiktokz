@@ -1,0 +1,12 @@
+[
+    {
+      "name": "__Secure-better-auth.session_token",
+      "value": "nZDRgCtAaW2VIynIkEzWvh4kum3hBjN5.7Xy2XUQP3zC9S%2B5hWOIHi4VDjexubfv5iijKhfdPuOE%3D",
+      "domain": "app.hera.video",
+      "path": "/",
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ]
+  
