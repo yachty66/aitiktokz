@@ -20,7 +20,6 @@ interface Template {
 
 export default function SlideshowsPage() {
   const [prompt, setPrompt] = useState("");
-  const [speed, setSpeed] = useState("1.0x");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
@@ -391,24 +390,6 @@ export default function SlideshowsPage() {
         <Card className="bg-black border border-white/10 p-6 space-y-4 self-start max-h-[720px] overflow-hidden">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Preview Editor</h2>
-            <div className="flex items-center gap-2">
-              <select
-                value={speed}
-                onChange={(e) => setSpeed(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-              >
-                <option value="1x">1x</option>
-                <option value="1.0x">1.0x</option>
-                <option value="2x">2x</option>
-              </select>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-white/20 text-white hover:bg-white/5"
-              >
-                Expand View
-              </Button>
-            </div>
           </div>
 
           {/* Preview Area */}
@@ -429,6 +410,13 @@ export default function SlideshowsPage() {
                     className={`snap-center flex-shrink-0 flex flex-col items-center ${
                       idx === currentSlide ? "scale-100" : "scale-95 opacity-90"
                     } transition-transform`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setCurrentSlide(idx)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ")
+                        setCurrentSlide(idx);
+                    }}
                   >
                     <div
                       className={`w-44 ${
