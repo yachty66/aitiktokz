@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
@@ -28,6 +28,8 @@ export default function SlideshowsPage() {
   );
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewTexts, setPreviewTexts] = useState<string[]>([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const stripRef = useRef<HTMLDivElement | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   // Image collections modal state
   const [isImagesModalOpen, setIsImagesModalOpen] = useState(false);
@@ -85,7 +87,7 @@ export default function SlideshowsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,600px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[480px,1fr] gap-6">
         {/* Left Side - Input Section */}
         <div className="space-y-6">
           {/* Prompt Section */}
@@ -174,6 +176,7 @@ export default function SlideshowsPage() {
                 const txts = (data.slides || []).map((s) => s.text);
                 setPreviewImages(imgs);
                 setPreviewTexts(txts);
+                setCurrentSlide(0);
               } catch (e) {
                 console.error("Load random images error", e);
               } finally {
@@ -187,7 +190,7 @@ export default function SlideshowsPage() {
         </div>
 
         {/* Right Side - Preview Editor */}
-        <Card className="bg-black border border-white/10 p-6 space-y-4 h-fit sticky top-6">
+        <Card className="bg-black border border-white/10 p-6 space-y-4 self-start max-h-[720px] overflow-hidden">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Preview Editor</h2>
             <div className="flex items-center gap-2">
@@ -211,15 +214,22 @@ export default function SlideshowsPage() {
           </div>
 
           {/* Preview Area */}
-          <div className="bg-white/5 border border-white/10 rounded-md aspect-[9/16] flex items-center justify-center overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-md h-[380px] md:h-[430px] flex items-center overflow-hidden">
             {previewImages.length === 0 ? (
-              <p className="text-white/40 text-sm">No preview available</p>
+              <div className="w-full flex items-center justify-center">
+                <p className="text-white/40 text-sm">No preview available</p>
+              </div>
             ) : (
-              <div className="flex gap-6 px-6">
+              <div
+                ref={stripRef}
+                className="w-full h-full overflow-x-auto flex items-center gap-6 px-6 snap-x snap-mandatory"
+              >
                 {previewImages.map((src, idx) => (
                   <div
                     key={idx}
-                    className="w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative"
+                    className={`snap-center flex-shrink-0 w-44 h-72 bg-black/40 rounded-md overflow-hidden shadow relative transition-transform ${
+                      idx === currentSlide ? "scale-100" : "scale-95 opacity-90"
+                    }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -249,6 +259,36 @@ export default function SlideshowsPage() {
               </div>
             )}
           </div>
+
+          {previewImages.length > 0 && (
+            <div className="flex items-center justify-center gap-3 -mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/5"
+                onClick={() =>
+                  setCurrentSlide(
+                    (i) => (i - 1 + previewImages.length) % previewImages.length
+                  )
+                }
+              >
+                ‹
+              </Button>
+              <span className="text-xs text-white/60">
+                {currentSlide + 1} / {previewImages.length}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 text-white hover:bg-white/5"
+                onClick={() =>
+                  setCurrentSlide((i) => (i + 1) % previewImages.length)
+                }
+              >
+                ›
+              </Button>
+            </div>
+          )}
 
           {/* Editor Controls */}
           <div className="flex items-center justify-center gap-2">
