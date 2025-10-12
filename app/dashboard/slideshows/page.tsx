@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Type } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,14 @@ export default function SlideshowsPage() {
   const [editingOriginal, setEditingOriginal] = useState<string>("");
   const editingRef = useRef<HTMLDivElement | null>(null);
   const seededRef = useRef<boolean>(false);
+  const [durations, setDurations] = useState<number[]>([]);
+  const [openDurationFor, setOpenDurationFor] = useState<number | null>(null);
+  const durationMenuRef = useRef<HTMLDivElement | null>(null);
+  const [durationMenuPos, setDurationMenuPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const durationMenuPortalRef = useRef<HTMLDivElement | null>(null);
   const [textBoxes, setTextBoxes] = useState<
     { x: number; y: number; widthPct: number }[]
   >([]);
@@ -77,6 +86,33 @@ export default function SlideshowsPage() {
     });
   }, [currentSlide]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (!durationMenuRef.current) return;
+      if (!(e.target instanceof Node)) return;
+      const insideButton = durationMenuRef.current.contains(e.target);
+      const insidePortal =
+        !!durationMenuPortalRef.current &&
+        durationMenuPortalRef.current.contains(e.target);
+      if (!insideButton && !insidePortal) {
+        setOpenDurationFor(null);
+        setDurationMenuPos(null);
+      }
+    }
+    if (openDurationFor !== null) {
+      document.addEventListener("mousedown", onClickOutside);
+      const onResize = () => {
+        setOpenDurationFor(null);
+        setDurationMenuPos(null);
+      };
+      window.addEventListener("resize", onResize);
+      return () => {
+        document.removeEventListener("mousedown", onClickOutside);
+        window.removeEventListener("resize", onResize);
+      };
+    }
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [openDurationFor]);
   useEffect(() => {
     if (editingSlide !== null) {
       // Seed again on each start and focus the editor
@@ -277,6 +313,7 @@ export default function SlideshowsPage() {
                 setPreviewImages(imgs);
                 setPreviewTexts(txts);
                 setTextBoxes(txts.map(() => ({ x: 50, y: 50, widthPct: 85 })));
+                setDurations(txts.map(() => 2));
                 setCurrentSlide(0);
               } catch (e) {
                 console.error("Load random images error", e);
@@ -677,9 +714,73 @@ export default function SlideshowsPage() {
                         >
                           <Type className="w-4 h-4" />
                         </button>
-                        <button className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10">
-                          2s
-                        </button>
+                        <div
+                          className="relative"
+                          ref={idx === openDurationFor ? durationMenuRef : null}
+                        >
+                          <button
+                            className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10"
+                            onClick={(e) => {
+                              const btn = e.currentTarget as HTMLElement;
+                              const rect = btn.getBoundingClientRect();
+                              setDurationMenuPos({
+                                top: rect.bottom + 8,
+                                left: rect.left + rect.width / 2,
+                              });
+                              setOpenDurationFor(
+                                openDurationFor === idx ? null : idx
+                              );
+                            }}
+                            aria-haspopup="menu"
+                            aria-expanded={openDurationFor === idx}
+                            title="Slide duration"
+                          >
+                            {durations[idx] ?? 2}s
+                          </button>
+                          {openDurationFor === idx &&
+                            durationMenuPos &&
+                            createPortal(
+                              <div
+                                ref={durationMenuPortalRef}
+                                className="fixed z-50 w-32 bg-white text-black rounded-md shadow-lg border border-black/10"
+                                role="menu"
+                                style={{
+                                  top: `${durationMenuPos.top}px`,
+                                  left: `${durationMenuPos.left - 64}px`,
+                                }}
+                              >
+                                {[2, 3, 4, 5, 6].map((sec) => (
+                                  <button
+                                    key={sec}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-black/5 ${
+                                      (durations[idx] ?? 2) === sec
+                                        ? "bg-black/5"
+                                        : ""
+                                    }`}
+                                    onClick={() => {
+                                      setDurations((prev) => {
+                                        const next = [
+                                          ...(prev.length
+                                            ? prev
+                                            : new Array(
+                                                previewImages.length
+                                              ).fill(2)),
+                                        ];
+                                        next[idx] = sec;
+                                        return next;
+                                      });
+                                      setOpenDurationFor(null);
+                                      setDurationMenuPos(null);
+                                    }}
+                                    role="menuitem"
+                                  >
+                                    {sec}s
+                                  </button>
+                                ))}
+                              </div>,
+                              document.body
+                            )}
+                        </div>
                         <button className="w-10 h-10 rounded-full bg-white text-black text-xs font-semibold flex items-center justify-center shadow border border-white/10">
                           4:5
                         </button>
@@ -806,6 +907,7 @@ export default function SlideshowsPage() {
                       if (from == null || from === idx) return;
                       setPreviewImages((prev) => moveItem(prev, from, idx));
                       setPreviewTexts((prev) => moveItem(prev, from, idx));
+                      setDurations((prev) => moveItem(prev, from, idx));
                       setCurrentSlide(idx);
                     }}
                     onDragEnd={() => {
