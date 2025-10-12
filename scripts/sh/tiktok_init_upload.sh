@@ -1,7 +1,7 @@
 #!/bin/bash
 # === Step 1: Initialize TikTok Upload ===
 
-ACCESS_TOKEN="act.OABTKK4Mg6S9uL25kKga6cySJJuzNp5B24bTrNwouBmhb7BDnkhpA8yUh0NH!4692.e1"
+ACCESS_TOKEN="act.TYgQCqN2dCxkZvUjn0EIZbcDEprFIPc8RFg0i3BKWJ9V48JgXcV9hyCTO258!4741.e1"
 VIDEO_FILE="sample.mov"
 
 if [ ! -f "$VIDEO_FILE" ]; then
@@ -33,6 +33,7 @@ if command -v jq &> /dev/null; then
   upload_url=$(echo "$response" | jq -r '.data.upload_url // empty')
 
   if [ -n "$publish_id" ] && [ -n "$upload_url" ]; then
+    # Overwrite any old ids from previous runs
     echo "$publish_id" > publish_id.txt
     echo "$upload_url" > upload_url.txt
     echo ""
@@ -41,6 +42,9 @@ if command -v jq &> /dev/null; then
     echo "Upload URL: $upload_url"
   else
     echo "⚠️ Could not extract publish_id or upload_url."
+    # Avoid using stale IDs from previous runs
+    rm -f publish_id.txt upload_url.txt
+    exit 1
   fi
 else
   echo "Install jq for JSON parsing (brew install jq or apt install jq)."

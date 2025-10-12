@@ -1,0 +1,4 @@
+https://www.tiktok.com/v2/auth/authorize/?client_key=sbawelekk7yrlzy62u&scope=user.info.basic,video.upload,video.publish&response_type=code&redirect_uri=https://webhook.site/dc4f4ef1-c084-44d3-a8e2-bf3733d90cf0&state=12345
+
+
+

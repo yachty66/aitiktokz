@@ -1,0 +1,78 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host open.tiktokapis.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 2.21.245.210, 2.21.245.215
+*   Trying 2.21.245.210:443...
+* Connected to open.tiktokapis.com (2.21.245.210) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [324 bytes data]
+*  CAfile: /etc/ssl/cert.pem
+*  CApath: none
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [29 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [2053 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [80 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=*.tiktokapis.com
+*  start date: Jul  7 00:00:00 2025 GMT
+*  expire date: Jul  6 23:59:59 2026 GMT
+*  subjectAltName: host "open.tiktokapis.com" matched cert's "*.tiktokapis.com"
+*  issuer: C=US; O=DigiCert Inc; OU=www.digicert.com; CN=RapidSSL TLS ECC CA G1
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://open.tiktokapis.com/v2/oauth/token/
+* [HTTP/2] [1] [:method: POST]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: open.tiktokapis.com]
+* [HTTP/2] [1] [:path: /v2/oauth/token/]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+* [HTTP/2] [1] [content-type: application/x-www-form-urlencoded]
+* [HTTP/2] [1] [content-length: 428]
+> POST /v2/oauth/token/ HTTP/2
+> Host: open.tiktokapis.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Type: application/x-www-form-urlencoded
+> Content-Length: 428
+> 
+} [428 bytes data]
+* upload completely sent off: 428 bytes
+< HTTP/2 403 
+< access-control-allow-methods: *
+< x-tt-logid: 20251012105702FFCDFC78DADBD0BADBAB
+< access-control-expose-headers: x-tt-traceflag,x-tt-logid
+< access-control-allow-credentials: true
+< x-origin-response-time: 359,2.20.44.82
+< server: nginx
+< access-control-allow-origin: *
+< x-tt-trace-id: 00-251012105702FFCDFC78DADBD0BADBAB-17AAF3F67A704107-00
+< proxy-status: 0000201403062000
+< access-control-allow-headers: *
+< x-tt-system-error: 3
+< x-tt-trace-host: 0165cfcdc449a99037f9c04f29d2de25949166c5fbe1486e2f8597c5737747f5fce64411b87a125053dce12b24d565e2d425d40a0f98bd0eec514abef5590ba0bae0f625e451a33cba7ea2be3d89914e85a44b7f3894bf3a41d8f40baee3ca0578
+< x-tt-origin-idc: useast5
+< expires: Sun, 12 Oct 2025 10:57:02 GMT
+< cache-control: max-age=0, no-cache, no-store
+< pragma: no-cache
+< date: Sun, 12 Oct 2025 10:57:02 GMT
+< x-tt-trace-tag: id=16;cdn-cache=miss;type=dyn
+< server-timing: cdn-cache; desc=MISS, edge; dur=504, origin; dur=0
+< x-parent-response-time: 497,2.20.44.82
+< 
+{ [0 bytes data]
+100   428    0     0  100   428      0    593 --:--:-- --:--:-- --:--:--   592100   428    0     0  100   428      0    593 --:--:-- --:--:-- --:--:--   592
+* Connection #0 to host open.tiktokapis.com left intact
