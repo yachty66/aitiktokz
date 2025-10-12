@@ -34,3 +34,7 @@ i think for all of the stuff
 2. make another agent who takes the previous output prompt and makes the text content for the slides
 
 3. take the number of slides from prev output and assign it to slides randomly - insert text into slides and render them in webapp
+
+## next steps
+
+- make a database with 
