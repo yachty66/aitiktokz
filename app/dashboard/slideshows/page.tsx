@@ -70,6 +70,8 @@ export default function SlideshowsPage() {
     top: number;
     left: number;
   } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportedSlideshows, setExportedSlideshows] = useState<any[]>([]);
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -279,6 +281,25 @@ export default function SlideshowsPage() {
       setIsLoadingTemplates(false);
     }
   };
+
+  // Load exported slideshows from Supabase
+  const loadExports = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase
+        .from("exported_slideshows")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setExportedSlideshows(data || []);
+    } catch (err) {
+      console.error("Error loading exports:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadExports();
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1057,18 +1078,43 @@ export default function SlideshowsPage() {
             className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-4 text-lg"
             onClick={async () => {
               try {
-                const res = await fetch(
-                  "/api/images/random?n=5&prefix=pinterest-surrealism/"
+                if (previewImages.length === 0) return;
+                setIsExporting(true);
+                const supabase = createSupabaseBrowserClient();
+                const total = (durations || []).reduce(
+                  (a, b) => a + (b || 0),
+                  0
                 );
-                if (!res.ok) throw new Error("Failed to load images");
-                const data = (await res.json()) as { images?: string[] };
-                setPreviewImages(data.images || []);
-              } catch (e) {
-                console.error("Load random images error", e);
+                const payload = {
+                  title: `Slideshow ${new Date().toLocaleDateString()}`,
+                  prompt,
+                  aspect,
+                  num_slides: previewImages.length,
+                  total_duration_sec: total,
+                  thumbnail_url: previewImages[0] || null,
+                  data: {
+                    images: previewImages,
+                    texts: previewTexts,
+                    textBoxes,
+                    durations,
+                    aspect,
+                    prompt,
+                  },
+                } as const;
+                const { error } = await supabase
+                  .from("exported_slideshows")
+                  .insert(payload);
+                if (error) throw error;
+                await loadExports();
+              } catch (err) {
+                console.error("Export failed:", err);
+              } finally {
+                setIsExporting(false);
               }
             }}
+            disabled={isExporting || previewImages.length === 0}
           >
-            Generate
+            {isExporting ? "Exporting…" : "Export"}
           </Button>
         </Card>
       </div>
@@ -1104,20 +1150,33 @@ export default function SlideshowsPage() {
           </div>
         </div>
 
-        {/* Grid of Slideshows */}
+        {/* Grid of Slideshows (from Supabase) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {exportedSlideshows.map((ex) => (
             <Card
-              key={i}
+              key={ex.id}
               className="bg-white/5 border border-white/10 p-3 space-y-3 hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <div className="aspect-[9/16] bg-gradient-to-br from-white/10 to-white/5 rounded-md"></div>
+              <div className="aspect-[9/16] bg-white/5 rounded-md overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {ex.thumbnail_url ? (
+                  <img
+                    src={ex.thumbnail_url}
+                    alt={ex.title || "thumbnail"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+                )}
+              </div>
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white truncate">
-                  Slideshow {i + 1}
+                  {ex.title || "Slideshow"}
                 </p>
                 <p className="text-xs text-white/50">
-                  Created {i + 1} days ago
+                  {ex.created_at
+                    ? new Date(ex.created_at).toLocaleString()
+                    : ""}
                 </p>
               </div>
             </Card>
