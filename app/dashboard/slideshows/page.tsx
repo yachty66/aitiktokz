@@ -72,6 +72,140 @@ export default function SlideshowsPage() {
   } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedSlideshows, setExportedSlideshows] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 12; // cards per page
+  const [cardSlideIndex, setCardSlideIndex] = useState<Record<string, number>>(
+    {}
+  );
+  const [shareModal, setShareModal] = useState<{
+    open: boolean;
+    slideshow: any | null;
+  }>({ open: false, slideshow: null });
+  const [modalSlideIdx, setModalSlideIdx] = useState(0);
+  const [accounts, setAccounts] = useState<string[]>([]);
+  const [selectedAccount, setSelectedAccount] =
+    useState<string>("nutricamtracker");
+  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
+  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Helpers to composite text over images and upload to S3 before export
+  function getCanvasSizeForAspect(a: "1:1" | "4:5" | "3:4" | "9:16") {
+    if (a === "1:1") return { width: 1080, height: 1080 };
+    if (a === "4:5") return { width: 1080, height: 1350 };
+    if (a === "3:4") return { width: 1080, height: 1440 };
+    return { width: 1080, height: 1920 };
+  }
+
+  function loadImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      // Route through same-origin proxy to avoid CORS tainting
+      const proxied = `/api/image-proxy?url=${encodeURIComponent(src)}`;
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = proxied;
+    });
+  }
+
+  function drawImageCover(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    cw: number,
+    ch: number
+  ) {
+    const scale = Math.max(cw / img.width, ch / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    const x = (cw - w) / 2;
+    const y = (ch - h) / 2;
+    ctx.drawImage(img, x, y, w, h);
+  }
+
+  function wrapText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number
+  ): string[] {
+    const lines: string[] = [];
+    const paragraphs = (text || "").split(/\n+/);
+    for (const p of paragraphs) {
+      const words = p.split(/\s+/);
+      let current = "";
+      for (const w of words) {
+        const next = current ? current + " " + w : w;
+        if (ctx.measureText(next).width <= maxWidth) current = next;
+        else {
+          if (current) lines.push(current);
+          current = w;
+        }
+      }
+      if (current) lines.push(current);
+    }
+    return lines.length ? lines : [""];
+  }
+
+  async function compositeAndUploadSlide(
+    imageUrl: string,
+    text: string,
+    box: { x: number; y: number; widthPct: number },
+    a: "1:1" | "4:5" | "3:4" | "9:16",
+    index: number
+  ): Promise<string> {
+    const { width, height } = getCanvasSizeForAspect(a);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D unsupported");
+
+    const img = await loadImage(imageUrl);
+    drawImageCover(ctx, img, width, height);
+
+    const boxWidth =
+      (Math.max(10, Math.min(95, box?.widthPct ?? 85)) / 100) * width;
+    const cx = (Math.min(100, Math.max(0, box?.x ?? 50)) / 100) * width;
+    const cy = (Math.min(100, Math.max(0, box?.y ?? 50)) / 100) * height;
+
+    let fontSize = Math.round(width * 0.06);
+    fontSize = Math.max(28, Math.min(96, fontSize));
+    ctx.font = `${fontSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    const lines = wrapText(ctx, text || "", boxWidth);
+    const lineHeight = Math.round(fontSize * 1.2);
+    const totalH = lineHeight * lines.length;
+    let y = cy - totalH / 2 + lineHeight / 2;
+    ctx.strokeStyle = "#000";
+    ctx.fillStyle = "#fff";
+    ctx.lineWidth = Math.round(fontSize * 0.18);
+    for (const line of lines) {
+      ctx.strokeText(line, cx, y, boxWidth);
+      ctx.fillText(line, cx, y, boxWidth);
+      y += lineHeight;
+    }
+
+    const blob: Blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+    );
+
+    const fileName = `slide-${Date.now()}-${index}.jpg`;
+    // Use server-side upload to avoid bucket CORS requirements
+    const fd = new FormData();
+    fd.append("file", blob, fileName);
+    const up = await fetch("/api/upload", { method: "POST", body: fd });
+    let json: any = null;
+    try {
+      json = await up.json();
+    } catch {}
+    if (!up.ok || !json?.publicUrl) {
+      console.error("Upload response", up.status, json);
+      throw new Error("Upload failed");
+    }
+    return json.publicUrl as string;
+  }
 
   function moveItem<T>(list: T[], from: number, to: number): T[] {
     const next = [...list];
@@ -286,12 +420,42 @@ export default function SlideshowsPage() {
   const loadExports = async () => {
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from("exported_slideshows")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setExportedSlideshows(data || []);
+      // resolve user email once
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+      const email = user?.email ?? null;
+      setUserEmail(email);
+
+      // helper to run the base select with safe ordering
+      const runSelect = async (scoped: boolean) => {
+        let q = supabase.from("exported_slideshows").select("*");
+        if (scoped && email) {
+          q = q.eq("user_email", email);
+        }
+        // attempt order by created_at; if fails (column missing), fall back to id
+        let { data, error } = await q.order("created_at", { ascending: false });
+        if (error && (error as any)?.code === "42703") {
+          // column does not exist
+          const res = await q.order("id", { ascending: false });
+          data = res.data;
+          error = res.error;
+        }
+        if (error) throw error;
+        return data || [];
+      };
+
+      // try scoped first; if none, fall back to unscoped (helps older rows without user_email)
+      let rows = await runSelect(true);
+      if ((!rows || rows.length === 0) && !email) {
+        // if no email, we already queried unscoped by nature; nothing else to do
+      } else if (!rows || rows.length === 0) {
+        rows = await runSelect(false);
+      }
+
+      setExportedSlideshows(rows);
     } catch (err) {
       console.error("Error loading exports:", err);
     }
@@ -300,6 +464,51 @@ export default function SlideshowsPage() {
   useEffect(() => {
     loadExports();
   }, []);
+
+  // Reset to first page whenever the dataset changes
+  useEffect(() => {
+    setPage(1);
+  }, [exportedSlideshows.length]);
+
+  // Load connected TikTok accounts (for now single account via /api/tiktok/me)
+  useEffect(() => {
+    async function loadAccounts() {
+      if (!shareModal.open) return;
+      try {
+        const res = await fetch("/api/tiktok/me", { cache: "no-store" });
+        if (res.ok) {
+          const j = await res.json();
+          const uname =
+            j?.data?.creator_username ||
+            j?.data?.creator_nickname ||
+            "nutricamtracker";
+          setAccounts([uname]);
+          setSelectedAccount(uname);
+        } else {
+          setAccounts(["nutricamtracker"]);
+          setSelectedAccount("nutricamtracker");
+        }
+      } catch {
+        setAccounts(["nutricamtracker"]);
+        setSelectedAccount("nutricamtracker");
+      }
+    }
+    loadAccounts();
+  }, [shareModal.open]);
+
+  // Close account dropdown on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!accountDropdownRef.current) return;
+      if (!(e.target instanceof Node)) return;
+      if (!accountDropdownRef.current.contains(e.target))
+        setIsAccountsOpen(false);
+    }
+    if (isAccountsOpen) {
+      document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }
+  }, [isAccountsOpen]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -1085,15 +1294,28 @@ export default function SlideshowsPage() {
                   (a, b) => a + (b || 0),
                   0
                 );
+                // Compose text over images and upload
+                const composedUrls: string[] = [];
+                for (let i = 0; i < previewImages.length; i++) {
+                  const url = await compositeAndUploadSlide(
+                    previewImages[i],
+                    previewTexts[i] || "",
+                    textBoxes[i] || { x: 50, y: 50, widthPct: 85 },
+                    aspect,
+                    i
+                  );
+                  composedUrls.push(url);
+                }
+
                 const payload = {
                   title: `Slideshow ${new Date().toLocaleDateString()}`,
                   prompt,
                   aspect,
                   num_slides: previewImages.length,
                   total_duration_sec: total,
-                  thumbnail_url: previewImages[0] || null,
+                  thumbnail_url: composedUrls[0] || previewImages[0] || null,
                   data: {
-                    images: previewImages,
+                    images: composedUrls,
                     texts: previewTexts,
                     textBoxes,
                     durations,
@@ -1122,53 +1344,143 @@ export default function SlideshowsPage() {
       {/* Bottom Section - Exported & Drafts */}
       <div className="mt-12 space-y-6">
         {/* Tabs */}
-        <div className="flex items-center gap-6 border-b border-white/10">
+        <div className="flex items-center gap-6 border-b border-white/10 flex-wrap justify-between">
           <button className="pb-3 border-b-2 border-white font-semibold">
-            Exported Slideshows (3)
-          </button>
-          <button className="pb-3 text-white/50 hover:text-white">
-            Drafts (4)
+            {`Exported Slideshows (${exportedSlideshows.length})`}
           </button>
           <div className="ml-auto flex items-center gap-2 pb-3">
-            <span className="text-sm text-white/50">Page 1 of 1</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-              disabled
-            >
-              ‹
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 text-white hover:bg-white/5"
-              disabled
-            >
-              ›
-            </Button>
+            {(() => {
+              const totalPages = Math.max(
+                1,
+                Math.ceil(exportedSlideshows.length / pageSize)
+              );
+              return (
+                <>
+                  <span className="text-sm text-white/50">{`Page ${Math.min(
+                    page,
+                    totalPages
+                  )} of ${totalPages}`}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    ‹
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    ›
+                  </Button>
+                </>
+              );
+            })()}
           </div>
         </div>
 
         {/* Grid of Slideshows (from Supabase) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {exportedSlideshows.map((ex) => (
+          {(() => {
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+            return exportedSlideshows.slice(start, end);
+          })().map((ex) => (
             <Card
               key={ex.id}
               className="bg-white/5 border border-white/10 p-3 space-y-3 hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <div className="aspect-[9/16] bg-white/5 rounded-md overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {ex.thumbnail_url ? (
-                  <img
-                    src={ex.thumbnail_url}
-                    alt={ex.title || "thumbnail"}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
-                )}
-              </div>
+              {/* Per-card carousel */}
+              {(() => {
+                const slides: string[] = Array.isArray(ex?.data?.images)
+                  ? ex.data.images.filter(Boolean)
+                  : [];
+                const total = slides.length || 1;
+                const idxKey = String(ex.id);
+                const current = Math.min(
+                  cardSlideIndex[idxKey] ?? 0,
+                  Math.max(0, total - 1)
+                );
+                const go = (delta: number) => {
+                  setCardSlideIndex((prev) => {
+                    const next = { ...prev } as Record<string, number>;
+                    const n = (((current + delta) % total) + total) % total;
+                    next[idxKey] = n;
+                    return next;
+                  });
+                };
+
+                const activeSrc =
+                  slides[current] || ex.thumbnail_url || slides[0];
+                const aspectClass =
+                  (ex.aspect || "9:16") === "1:1"
+                    ? "aspect-square"
+                    : (ex.aspect || "9:16") === "4:5"
+                    ? "aspect-[4/5]"
+                    : (ex.aspect || "9:16") === "3:4"
+                    ? "aspect-[3/4]"
+                    : "aspect-[9/16]";
+
+                return (
+                  <div
+                    className={`${aspectClass} bg-white/5 rounded-md overflow-hidden relative`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {activeSrc ? (
+                      <img
+                        src={activeSrc}
+                        alt={ex.title || "thumbnail"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+                    )}
+
+                    {/* Arrows */}
+                    {total > 1 && (
+                      <>
+                        <button
+                          aria-label="Previous slide"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            go(-1);
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <button
+                          aria-label="Next slide"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            go(1);
+                          }}
+                        >
+                          ›
+                        </button>
+
+                        {/* Dots */}
+                        <div className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-1">
+                          {Array.from({ length: total }).map((_, i) => (
+                            <span
+                              key={i}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                i === current ? "bg-white" : "bg-white/40"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white truncate">
                   {ex.title || "Slideshow"}
@@ -1178,16 +1490,34 @@ export default function SlideshowsPage() {
                     ? new Date(ex.created_at).toLocaleString()
                     : ""}
                 </p>
+                <div className="pt-1">
+                  <button
+                    className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModalSlideIdx(0);
+                      setShareModal({ open: true, slideshow: ex });
+                    }}
+                    title="Publish to TikTok"
+                  >
+                    {/* TikTok icon */}
+                    <svg
+                      viewBox="0 0 48 48"
+                      className="w-4 h-4"
+                      fill="currentColor"
+                    >
+                      <path d="M31.5 9.5c2.2 2.6 5 4.2 8.5 4.6v6.3c-3.5-.1-6.6-1.1-9.3-3v10.6c0 6.6-5.4 11.6-12 10.9-5.6-.6-9.7-5.7-9.1-11.3.6-5.6 5.7-9.7 11.3-9.1v6.4c-1.9-.5-3.8.8-4.1 2.7-.4 2.1 1.4 4 3.5 4 2 .1 3.7-1.5 3.7-3.5V6h7.5v3.5z" />
+                    </svg>
+                    <span>Post to TikTok</span>
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
 
           {/* Empty State */}
-          {[...Array(1)].map((_, i) => (
-            <Card
-              key={`empty-${i}`}
-              className="bg-white/5 border border-white/10 border-dashed p-3 flex items-center justify-center aspect-[9/16] hover:bg-white/10 transition-colors cursor-pointer"
-            >
+          {exportedSlideshows.length === 0 && (
+            <Card className="bg-white/5 border border-white/10 border-dashed p-3 flex items-center justify-center aspect-[9/16] hover:bg-white/10 transition-colors">
               <div className="text-center">
                 <svg
                   className="w-12 h-12 mx-auto mb-2 text-white/30"
@@ -1202,12 +1532,210 @@ export default function SlideshowsPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                <p className="text-xs text-white/50">Create new</p>
+                <p className="text-xs text-white/50">No slideshows yet</p>
               </div>
             </Card>
-          ))}
+          )}
         </div>
+
+        {/* Bottom pagination removed – top-right controls are sufficient */}
       </div>
+      {/* TikTok share modal */}
+      {shareModal.open && shareModal.slideshow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-2xl bg-black border border-white/20 rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <svg
+                  viewBox="0 0 48 48"
+                  className="w-5 h-5"
+                  fill="currentColor"
+                >
+                  <path d="M31.5 9.5c2.2 2.6 5 4.2 8.5 4.6v6.3c-3.5-.1-6.6-1.1-9.3-3v10.6c0 6.6-5.4 11.6-12 10.9-5.6-.6-9.7-5.7-9.1-11.3.6-5.6 5.7-9.7 11.3-9.1v6.4c-1.9-.5-3.8.8-4.1 2.7-.4 2.1 1.4 4 3.5 4 2 .1 3.7-1.5 3.7-3.5V6h7.5v3.5z" />
+                </svg>
+                Publish to TikTok
+              </div>
+              <button
+                className="text-white/70 hover:text-white"
+                onClick={() => setShareModal({ open: false, slideshow: null })}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-[260px,1fr] gap-4">
+              {/* Preview carousel */}
+              <div className="bg-white/5 rounded-md p-3">
+                {(() => {
+                  const slides: string[] = Array.isArray(
+                    shareModal.slideshow?.data?.images
+                  )
+                    ? (shareModal.slideshow.data.images as string[])
+                    : [];
+                  const total = slides.length || 1;
+                  const activeSrc =
+                    slides[modalSlideIdx] ||
+                    shareModal.slideshow?.thumbnail_url ||
+                    slides[0];
+                  return (
+                    <>
+                      <div className="relative aspect-[9/16] bg-black/30 rounded overflow-hidden flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {activeSrc ? (
+                          <img
+                            src={activeSrc}
+                            alt="preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full" />
+                        )}
+                        {total > 1 && (
+                          <>
+                            <button
+                              aria-label="Previous slide"
+                              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                              onClick={() =>
+                                setModalSlideIdx(
+                                  (i) => (((i - 1) % total) + total) % total
+                                )
+                              }
+                            >
+                              ‹
+                            </button>
+                            <button
+                              aria-label="Next slide"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                              onClick={() =>
+                                setModalSlideIdx((i) => (i + 1) % total)
+                              }
+                            >
+                              ›
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-center gap-1 mt-2">
+                        {slides.map((_, i) => (
+                          <button
+                            key={i}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              i === modalSlideIdx ? "bg-white" : "bg-white/40"
+                            }`}
+                            aria-label={`Go to slide ${i + 1}`}
+                            onClick={() => setModalSlideIdx(i)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+              {/* Form */}
+              <div className="space-y-3 flex flex-col min-h-[420px]">
+                <div>
+                  <label className="text-xs text-white/60">
+                    Select account
+                  </label>
+                  <div className="mt-1 relative" ref={accountDropdownRef}>
+                    <button
+                      className="w-full flex items-center justify-between px-3 py-2 rounded bg-white/5 border border-white/10 text-sm hover:bg-white/10"
+                      onClick={() => setIsAccountsOpen((v) => !v)}
+                    >
+                      <span>@{selectedAccount}</span>
+                      <svg
+                        className="w-4 h-4 text-white/70"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    {isAccountsOpen && (
+                      <div className="absolute z-10 mt-1 w-full rounded-md border border-white/10 bg-black shadow-lg">
+                        {accounts.map((acc) => (
+                          <button
+                            key={acc}
+                            onClick={() => {
+                              setSelectedAccount(acc);
+                              setIsAccountsOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-white/5 ${
+                              acc === selectedAccount ? "bg-white/5" : ""
+                            }`}
+                          >
+                            @{acc}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-white/60">Title</label>
+                  <input
+                    id="tiktok-title-input"
+                    className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/10 text-sm"
+                    placeholder="Add a title…"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60">Description</label>
+                  <textarea
+                    className="mt-1 w-full px-3 py-2 rounded bg-white/5 border border-white/10 text-sm"
+                    rows={3}
+                    placeholder="Add a description…"
+                  />
+                </div>
+                <div className="mt-auto pt-2 flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/5"
+                    onClick={() =>
+                      setShareModal({ open: false, slideshow: null })
+                    }
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    className="bg-white text-black hover:bg-gray-200"
+                    onClick={async () => {
+                      try {
+                        const videoUrl = `${window.location.origin}/sample.mov`;
+                        const res = await fetch("/api/tiktok/publish", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            videoUrl,
+                            title: (
+                              document.querySelector(
+                                "#tiktok-title-input"
+                              ) as HTMLInputElement | null
+                            )?.value,
+                          }),
+                        });
+                        const json = await res.json();
+                        if (!res.ok) throw new Error(json?.error || "Failed");
+                        alert("Published to TikTok successfully.");
+                        setShareModal({ open: false, slideshow: null });
+                      } catch (e: any) {
+                        console.error("Publish error", e);
+                        alert(`Publish failed: ${e?.message || e}`);
+                      }
+                    }}
+                  >
+                    Publish to TikTok
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Template Library Modal */}
       {showTemplateModal && (
