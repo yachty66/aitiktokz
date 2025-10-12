@@ -1621,8 +1621,16 @@ export default function SlideshowsPage() {
                   return (
                     <>
                       <div className="relative aspect-[9/16] bg-black/30 rounded overflow-hidden flex items-center justify-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {activeSrc ? (
+                        {/* If video_url is present, show a playable video */}
+                        {shareModal.slideshow?.video_url ? (
+                          <video
+                            src={shareModal.slideshow.video_url}
+                            controls
+                            playsInline
+                            className="w-full h-full object-cover"
+                          />
+                        ) : activeSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={activeSrc}
                             alt="preview"
